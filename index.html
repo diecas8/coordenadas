@@ -4,67 +4,97 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coordinate Converter</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
 </head>
 <body>
     <h1>Coordinate Converter</h1>
 
     <div>
-        <h2>Geographic to UTM</h2>
-        <label for="lat">Latitude:</label>
-        <input type="text" id="lat" placeholder="Enter latitude">
-        <label for="lon">Longitude:</label>
-        <input type="text" id="lon" placeholder="Enter longitude">
-        <button onclick="convertToUTM()">Convert to UTM</button>
-        <p id="utmResult"></p>
+        <h2>Geographic (DMS) to Decimal</h2>
+        <label for="dmsLat">Latitude (DMS):</label>
+        <input type="text" id="dmsLat" placeholder="Enter latitude in DMS (e.g., 40°26'46"N)">
+        <label for="dmsLon">Longitude (DMS):</label>
+        <input type="text" id="dmsLon" placeholder="Enter longitude in DMS (e.g., 79°58'56"W)">
+        <button onclick="convertDMSToDecimal()">Convert to Decimal</button>
+        <p id="decimalResult"></p>
     </div>
 
     <div>
-        <h2>UTM to Geographic</h2>
-        <label for="easting">Easting:</label>
-        <input type="text" id="easting" placeholder="Enter easting">
-        <label for="northing">Northing:</label>
-        <input type="text" id="northing" placeholder="Enter northing">
-        <label for="zone">Zone:</label>
-        <input type="text" id="zone" placeholder="Enter UTM zone">
-        <button onclick="convertToGeographic()">Convert to Geographic</button>
-        <p id="geoResult"></p>
+        <h2>Decimal to Geographic (DMS)</h2>
+        <label for="decimalLat">Latitude (Decimal):</label>
+        <input type="text" id="decimalLat" placeholder="Enter latitude in decimal">
+        <label for="decimalLon">Longitude (Decimal):</label>
+        <input type="text" id="decimalLon" placeholder="Enter longitude in decimal">
+        <button onclick="convertDecimalToDMS()">Convert to DMS</button>
+        <p id="dmsResult"></p>
     </div>
 
     <script>
-        // Function to convert geographic coordinates to UTM
-        function convertToUTM() {
-            const lat = parseFloat(document.getElementById('lat').value);
-            const lon = parseFloat(document.getElementById('lon').value);
+        // Helper function to convert DMS to Decimal
+        function DMSToDecimal(dms) {
+            const regex = /^(\d+)°(\d+)'(\d+\.?\d*)"([NSEW])$/;
+            const match = dms.match(regex);
 
-            if (isNaN(lat) || isNaN(lon)) {
-                document.getElementById('utmResult').textContent = 'Please enter valid latitude and longitude.';
-                return;
+            if (!match) {
+                return null;
             }
 
-            const utmZone = Math.floor((lon + 180) / 6) + 1;
-            const projString = `+proj=utm +zone=${utmZone} +datum=WGS84 +units=m +no_defs`;
-            const utm = proj4('WGS84', projString, [lon, lat]);
+            const degrees = parseFloat(match[1]);
+            const minutes = parseFloat(match[2]);
+            const seconds = parseFloat(match[3]);
+            const direction = match[4];
 
-            document.getElementById('utmResult').textContent = `Easting: ${utm[0].toFixed(2)}, Northing: ${utm[1].toFixed(2)}, Zone: ${utmZone}`;
+            let decimal = degrees + minutes / 60 + seconds / 3600;
+
+            if (direction === 'S' || direction === 'W') {
+                decimal *= -1;
+            }
+
+            return decimal;
         }
 
-        // Function to convert UTM coordinates to geographic
-        function convertToGeographic() {
-            const easting = parseFloat(document.getElementById('easting').value);
-            const northing = parseFloat(document.getElementById('northing').value);
-            const zone = parseInt(document.getElementById('zone').value);
+        // Helper function to convert Decimal to DMS
+        function DecimalToDMS(decimal, type) {
+            const absolute = Math.abs(decimal);
+            const degrees = Math.floor(absolute);
+            const minutes = Math.floor((absolute - degrees) * 60);
+            const seconds = ((absolute - degrees - minutes / 60) * 3600).toFixed(2);
+            const direction = type === 'lat' ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
 
-            if (isNaN(easting) || isNaN(northing) || isNaN(zone)) {
-                document.getElementById('geoResult').textContent = 'Please enter valid UTM coordinates and zone.';
+            return `${degrees}°${minutes}'${seconds}"${direction}`;
+        }
+
+        // Convert Geographic (DMS) to Decimal
+        function convertDMSToDecimal() {
+            const dmsLat = document.getElementById('dmsLat').value;
+            const dmsLon = document.getElementById('dmsLon').value;
+
+            const decimalLat = DMSToDecimal(dmsLat);
+            const decimalLon = DMSToDecimal(dmsLon);
+
+            if (decimalLat === null || decimalLon === null) {
+                document.getElementById('decimalResult').textContent = 'Please enter valid DMS coordinates.';
                 return;
             }
 
-            const projString = `+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs`;
-            const geographic = proj4(projString, 'WGS84', [easting, northing]);
+            document.getElementById('decimalResult').textContent = `Latitude: ${decimalLat.toFixed(6)}, Longitude: ${decimalLon.toFixed(6)}`;
+        }
 
-            document.getElementById('geoResult').textContent = `Latitude: ${geographic[1].toFixed(6)}, Longitude: ${geographic[0].toFixed(6)}`;
+        // Convert Decimal to Geographic (DMS)
+        function convertDecimalToDMS() {
+            const decimalLat = parseFloat(document.getElementById('decimalLat').value);
+            const decimalLon = parseFloat(document.getElementById('decimalLon').value);
+
+            if (isNaN(decimalLat) || isNaN(decimalLon)) {
+                document.getElementById('dmsResult').textContent = 'Please enter valid decimal coordinates.';
+                return;
+            }
+
+            const dmsLat = DecimalToDMS(decimalLat, 'lat');
+            const dmsLon = DecimalToDMS(decimalLon, 'lon');
+
+            document.getElementById('dmsResult').textContent = `Latitude: ${dmsLat}, Longitude: ${dmsLon}`;
         }
     </script>
 </body>
 </html>
+
