@@ -277,7 +277,7 @@
             }
             const tableBody = document.querySelector('#historyTable tbody');
             historyCount++;
-            const row = `<tr id="row-${historyCount}">
+            const row = `<tr id="row-${historyCount}" onclick="highlightMarker(${historyCount - 1})">
                 <td>${historyCount}</td>
                 <td>${decimalLat.toFixed(6)}</td>
                 <td>${decimalLon.toFixed(6)}</td>
@@ -310,7 +310,7 @@
                 addMarker(decimalLat, decimalLon, siteName);
 
                 const tableBody = document.querySelector('#historyTable tbody');
-                const row = `<tr id="row-${index + 1}">
+                const row = `<tr id="row-${index + 1}" onclick="highlightMarker(${index})">
                     <td>${index + 1}</td>
                     <td>${decimalLat.toFixed(6)}</td>
                     <td>${decimalLon.toFixed(6)}</td>
@@ -342,13 +342,15 @@
         }
 
         function highlightMarker(index) {
-            map.setView(markers[index].getLatLng(), 12);
-            markers[index].openPopup();
+            const marker = markers[index];
+            if (marker) {
+                map.setView(marker.getLatLng(), 12);
+                marker.openPopup();
+            }
         }
 
         window.onload = initializeMap;
     </script>
 </body>
 </html>
-
 
