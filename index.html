@@ -68,19 +68,19 @@
             background: #0056b3;
         }
 
-        p, select {
+        p {
             margin: 10px 0 0;
             font-style: italic;
             color: #555;
         }
 
-        .result-list {
-            margin: 10px 0;
-            padding: 10px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #777;
         }
+
     </style>
 </head>
 <body>
@@ -89,13 +89,20 @@
     <div class="container">
         <!-- Coordinate Input and Conversion -->
         <div class="card">
-            <h2>Enter Coordinates</h2>
-            <label for="inputCoord">Coordinate (DMS or Decimal):</label>
-            <input type="text" id="inputCoord" placeholder="e.g., 40°26'46"N or 40.4462">
+            <h2>Enter Geographic Coordinates</h2>
+            <label for="latitude">Latitude (DMS):</label>
+            <input type="text" id="latitude" placeholder="e.g., 43°38'59.36"N">
 
-            <button onclick="generateOptions()">Generate Options</button>
-            <div id="results" class="result-list"></div>
+            <label for="longitude">Longitude (DMS):</label>
+            <input type="text" id="longitude" placeholder="e.g., 76°7'58.76"W">
+
+            <button onclick="convertCoordinates()">Convert</button>
+            <div id="results"></div>
         </div>
+    </div>
+
+    <div class="footer">
+        <p>Elaborado por Diego Castaño</p>
     </div>
 
     <script>
@@ -121,50 +128,20 @@
             return decimal;
         }
 
-        function DecimalToDMS(decimal, type) {
-            const absolute = Math.abs(decimal);
-            const degrees = Math.floor(absolute);
-            const minutes = Math.floor((absolute - degrees) * 60);
-            const seconds = ((absolute - degrees - minutes / 60) * 3600).toFixed(2);
-            const direction = type === 'lat' ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
-
-            return `${degrees}°${minutes}'${seconds}"${direction}`;
-        }
-
-        function generateOptions() {
-            const input = document.getElementById('inputCoord').value.trim();
+        function convertCoordinates() {
+            const latInput = document.getElementById('latitude').value.trim();
+            const lonInput = document.getElementById('longitude').value.trim();
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '';
 
-            let decimalLat, decimalLon, dmsLat, dmsLon;
+            const decimalLat = DMSToDecimal(latInput);
+            const decimalLon = DMSToDecimal(lonInput);
 
-            // Check if input is DMS
-            if (/°|'|"/.test(input)) {
-                const dms = input.split(/[ ,]+/);
-                if (dms.length === 2) {
-                    decimalLat = DMSToDecimal(dms[0]);
-                    decimalLon = DMSToDecimal(dms[1]);
-                }
-            } else {
-                const decimals = input.split(/[ ,]+/).map(parseFloat);
-                if (decimals.length === 2 && !isNaN(decimals[0]) && !isNaN(decimals[1])) {
-                    decimalLat = decimals[0];
-                    decimalLon = decimals[1];
-                    dmsLat = DecimalToDMS(decimalLat, 'lat');
-                    dmsLon = DecimalToDMS(decimalLon, 'lon');
-                }
+            if (decimalLat === null || decimalLon === null) {
+                resultsDiv.innerHTML = '<p style="color: red;">Invalid input. Please enter valid DMS coordinates.</p>';
+                return;
             }
 
-            if (decimalLat !== undefined && decimalLon !== undefined) {
-                resultsDiv.innerHTML += `<p>Decimal Coordinates: Lat ${decimalLat.toFixed(6)}, Lon ${decimalLon.toFixed(6)}</p>`;
-            }
-            if (dmsLat && dmsLon) {
-                resultsDiv.innerHTML += `<p>DMS Coordinates: Lat ${dmsLat}, Lon ${dmsLon}</p>`;
-            }
-
-            if (resultsDiv.innerHTML === '') {
-                resultsDiv.innerHTML = '<p>Invalid input. Please enter valid coordinates.</p>';
-            }
+            resultsDiv.innerHTML = `<p>Decimal Coordinates:<br> Latitude: ${decimalLat.toFixed(6)}<br> Longitude: ${decimalLon.toFixed(6)}</p>`;
         }
     </script>
 </body>
