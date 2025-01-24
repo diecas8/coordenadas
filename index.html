@@ -22,11 +22,9 @@
 
         .container {
             display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: center;
             margin: 20px;
-            gap: 20px;
         }
 
         .card {
@@ -35,11 +33,7 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             padding: 20px;
             width: 300px;
-        }
-
-        .card h2 {
-            font-size: 18px;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
         }
 
         label {
@@ -70,16 +64,25 @@
             background: #0056b3;
         }
 
-        p {
-            margin: 10px 0 0;
-            font-style: italic;
-            color: #555;
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th, td {
+            padding: 8px;
         }
 
         #map {
-            width: 100%;
+            width: 80%;
             height: 400px;
-            margin-top: 20px;
+            margin: 20px 0;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
@@ -112,9 +115,24 @@
             <button onclick="convertCoordinates()">Convertir y Mostrar</button>
             <div id="results"></div>
         </div>
-    </div>
 
-    <div id="map"></div>
+        <div id="map"></div>
+
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Latitud Decimal</th>
+                    <th>Longitud Decimal</th>
+                    <th>Latitud (DMS)</th>
+                    <th>Longitud (DMS)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí se agregarán las consultas realizadas -->
+            </tbody>
+        </table>
+    </div>
 
     <div class="footer">
         <p>Elaborado por Diego Castaño</p>
@@ -122,6 +140,8 @@
 
     <script>
         let map;
+        let marker;
+        let historyCount = 0;
 
         function initializeMap() {
             map = L.map('map').setView([0, 0], 2);
@@ -130,6 +150,18 @@
                 maxZoom: 18,
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+
+            map.on('click', function (e) {
+                const { lat, lng } = e.latlng;
+                document.getElementById('latitude').value = lat.toFixed(6);
+                document.getElementById('longitude').value = lng.toFixed(6);
+
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+
+                marker = L.marker([lat, lng]).addTo(map);
+            });
         }
 
         function decimalToDMS(decimal, type) {
@@ -163,8 +195,26 @@
             resultsDiv.innerHTML = `<p>Coordenadas decimales:<br>Latitud: ${decimalLat.toFixed(6)}<br>Longitud: ${decimalLon.toFixed(6)}</p>`;
             resultsDiv.innerHTML += `<p>Coordenadas geográficas (DMS):<br>Latitud: ${dmsLat}<br>Longitud: ${dmsLon}</p>`;
 
+            if (marker) {
+                map.removeLayer(marker);
+            }
             map.setView([decimalLat, decimalLon], 12);
-            L.marker([decimalLat, decimalLon]).addTo(map).bindPopup(`Latitud: ${dmsLat}<br>Longitud: ${dmsLon}`).openPopup();
+            marker = L.marker([decimalLat, decimalLon]).addTo(map).bindPopup(`Latitud: ${dmsLat}<br>Longitud: ${dmsLon}`).openPopup();
+
+            addToHistory(decimalLat, decimalLon, dmsLat, dmsLon);
+        }
+
+        function addToHistory(decimalLat, decimalLon, dmsLat, dmsLon) {
+            const tableBody = document.querySelector('#historyTable tbody');
+            historyCount++;
+            const row = `<tr>
+                <td>${historyCount}</td>
+                <td>${decimalLat.toFixed(6)}</td>
+                <td>${decimalLon.toFixed(6)}</td>
+                <td>${dmsLat}</td>
+                <td>${dmsLon}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
         }
 
         window.onload = initializeMap;
