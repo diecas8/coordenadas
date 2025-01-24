@@ -148,15 +148,16 @@
 
     <script>
         let map;
-        let marker;
+        let markers = []; // Array para guardar los marcadores
         let historyCount = 0;
 
         function initializeMap() {
             map = L.map('map').setView([0, 0], 2);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 18,
-                attribution: '© OpenStreetMap contributors'
+            L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '© Google Maps'
             }).addTo(map);
 
             map.on('click', async function (e) {
@@ -164,13 +165,8 @@
                 document.getElementById('latitude').value = lat.toFixed(6);
                 document.getElementById('longitude').value = lng.toFixed(6);
 
-                if (marker) {
-                    map.removeLayer(marker);
-                }
-
-                marker = L.marker([lat, lng]).addTo(map);
-
                 const siteName = await getSiteName(lat, lng);
+                addMarker(lat, lng, siteName);
                 addToHistory(lat.toFixed(6), lng.toFixed(6), decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName);
             });
         }
@@ -197,6 +193,21 @@
             }
         }
 
+        function addMarker(lat, lon, siteName) {
+            const colors = ['red', 'blue', 'green', 'orange', 'purple'];
+            const color = colors[historyCount % colors.length];
+
+            const marker = L.circleMarker([lat, lon], {
+                radius: 8,
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.7
+            }).addTo(map);
+
+            marker.bindPopup(`Sitio: ${siteName}<br>Latitud: ${lat.toFixed(6)}<br>Longitud: ${lon.toFixed(6)}`).openPopup();
+            markers.push(marker);
+        }
+
         function convertCoordinates() {
             const latInput = document.getElementById('latitude').value.trim();
             const lonInput = document.getElementById('longitude').value.trim();
@@ -216,13 +227,8 @@
             resultsDiv.innerHTML = `<p>Coordenadas decimales:<br>Latitud: ${decimalLat.toFixed(6)}<br>Longitud: ${decimalLon.toFixed(6)}</p>`;
             resultsDiv.innerHTML += `<p>Coordenadas geográficas (DMS):<br>Latitud: ${dmsLat}<br>Longitud: ${dmsLon}</p>`;
 
-            if (marker) {
-                map.removeLayer(marker);
-            }
-            map.setView([decimalLat, decimalLon], 12);
-            marker = L.marker([decimalLat, decimalLon]).addTo(map).bindPopup(`Latitud: ${dmsLat}<br>Longitud: ${dmsLon}`).openPopup();
-
             getSiteName(decimalLat, decimalLon).then(siteName => {
+                addMarker(decimalLat, decimalLon, siteName);
                 addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
             });
         }
