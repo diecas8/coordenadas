@@ -11,9 +11,9 @@
     <div>
         <h2>Geographic (DMS) to Decimal</h2>
         <label for="dmsLat">Latitude (DMS):</label>
-        <input type="text" id="dmsLat" placeholder="Enter latitude in DMS (e.g., 40°26'46"N)">
+        <input type="text" id="dmsLat" placeholder="Enter latitude in DMS (e.g., 40°26'46"N, 40°26'46"S)">
         <label for="dmsLon">Longitude (DMS):</label>
-        <input type="text" id="dmsLon" placeholder="Enter longitude in DMS (e.g., 79°58'56"W)">
+        <input type="text" id="dmsLon" placeholder="Enter longitude in DMS (e.g., 79°58'56"W, 79°58'56"E)">
         <button onclick="convertDMSToDecimal()">Convert to Decimal</button>
         <p id="decimalResult"></p>
     </div>
@@ -21,9 +21,9 @@
     <div>
         <h2>Decimal to Geographic (DMS)</h2>
         <label for="decimalLat">Latitude (Decimal):</label>
-        <input type="text" id="decimalLat" placeholder="Enter latitude in decimal">
+        <input type="text" id="decimalLat" placeholder="Enter latitude in decimal (e.g., 40.4462, -40.4462)">
         <label for="decimalLon">Longitude (Decimal):</label>
-        <input type="text" id="decimalLon" placeholder="Enter longitude in decimal">
+        <input type="text" id="decimalLon" placeholder="Enter longitude in decimal (e.g., -79.9822, 79.9822)">
         <button onclick="convertDecimalToDMS()">Convert to DMS</button>
         <p id="dmsResult"></p>
     </div>
