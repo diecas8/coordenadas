@@ -6,6 +6,7 @@
     <title>Convertidor de Coordenadas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -133,6 +134,20 @@
         .delete-btn:hover {
             background: darkred;
         }
+
+        .export-btn {
+            background: green;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .export-btn:hover {
+            background: darkgreen;
+        }
     </style>
 </head>
 <body>
@@ -171,6 +186,7 @@
                 <!-- Aquí se agregarán las consultas realizadas -->
             </tbody>
         </table>
+        <button class="export-btn" onclick="exportToExcel()">Exportar a Excel</button>
     </div>
 
     <div class="footer">
@@ -347,6 +363,16 @@
                 map.setView(marker.getLatLng(), 12);
                 marker.openPopup();
             }
+        }
+
+        function exportToExcel() {
+            const table = document.getElementById('historyTable');
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.table_to_sheet(table);
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Historial');
+
+            XLSX.writeFile(wb, 'historial_coordenadas.xlsx');
         }
 
         window.onload = initializeMap;
