@@ -69,6 +69,7 @@
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
+            cursor: pointer;
         }
 
         table, th, td {
@@ -102,6 +103,10 @@
         .history-container {
             width: 100%;
             overflow-x: auto;
+        }
+
+        .highlight {
+            background-color: yellow !important;
         }
     </style>
 </head>
@@ -150,6 +155,7 @@
         let map;
         let markers = []; // Array para guardar los marcadores
         let historyCount = 0;
+        const savedHistory = JSON.parse(localStorage.getItem('history')) || [];
 
         function initializeMap() {
             map = L.map('map').setView([0, 0], 2);
@@ -169,6 +175,8 @@
                 addMarker(lat, lng, siteName);
                 addToHistory(lat.toFixed(6), lng.toFixed(6), decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName);
             });
+
+            restoreHistory();
         }
 
         function decimalToDMS(decimal, type) {
@@ -204,7 +212,7 @@
                 fillOpacity: 0.7
             }).addTo(map);
 
-            marker.bindPopup(`Sitio: ${siteName}<br>Latitud: ${lat.toFixed(6)}<br>Longitud: ${lon.toFixed(6)}`).openPopup();
+            marker.bindPopup(`Sitio: ${siteName}<br>Latitud: ${lat.toFixed(6)}<br>Longitud: ${lon.toFixed(6)}`);
             markers.push(marker);
         }
 
@@ -236,7 +244,7 @@
         function addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
             const tableBody = document.querySelector('#historyTable tbody');
             historyCount++;
-            const row = `<tr>
+            const row = `<tr onclick="highlightMarker(${markers.length - 1})">
                 <td>${historyCount}</td>
                 <td>${decimalLat.toFixed(6)}</td>
                 <td>${decimalLon.toFixed(6)}</td>
@@ -245,6 +253,36 @@
                 <td>${siteName}</td>
             </tr>`;
             tableBody.innerHTML += row;
+
+            saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
+        }
+
+        function saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
+            savedHistory.push({ decimalLat, decimalLon, dmsLat, dmsLon, siteName });
+            localStorage.setItem('history', JSON.stringify(savedHistory));
+        }
+
+        function restoreHistory() {
+            savedHistory.forEach((entry, index) => {
+                const { decimalLat, decimalLon, dmsLat, dmsLon, siteName } = entry;
+                addMarker(decimalLat, decimalLon, siteName);
+
+                const tableBody = document.querySelector('#historyTable tbody');
+                const row = `<tr onclick="highlightMarker(${index})">
+                    <td>${index + 1}</td>
+                    <td>${decimalLat.toFixed(6)}</td>
+                    <td>${decimalLon.toFixed(6)}</td>
+                    <td>${dmsLat}</td>
+                    <td>${dmsLon}</td>
+                    <td>${siteName}</td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        function highlightMarker(index) {
+            map.setView(markers[index].getLatLng(), 12);
+            markers[index].openPopup();
         }
 
         window.onload = initializeMap;
