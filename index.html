@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.1/papaparse.min.js"></script>
     <script src="https://unpkg.com/shapefile@0.6.6/shapefile.js"></script>
+    <script src="https://unpkg.com/jszip@3.7.1/dist/jszip.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -348,7 +349,7 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const geojson = JSON.parse(e.target.result);
-                    L.geoJSON(geojson, {
+                    const layer = L.geoJSON(geojson, {
                         onEachFeature: function(feature, layer) {
                             if (feature.geometry.type === 'Point') {
                                 const [lon, lat] = feature.geometry.coordinates;
@@ -357,7 +358,9 @@
                                 addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
                             }
                         }
-                    }).addTo(map);
+                    });
+                    layer.addTo(map);
+                    map.fitBounds(layer.getBounds());
                 };
                 reader.readAsText(file);
             } else if (file.name.endsWith('.csv')) {
@@ -373,10 +376,39 @@
                                 addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
                             }
                         });
+                        if (markers.length > 0) {
+                            const group = L.featureGroup(markers);
+                            map.fitBounds(group.getBounds());
+                        }
                     }
                 });
             } else if (file.name.endsWith('.zip')) {
-                alert('Soporte para Shapefile en desarrollo');
+                const zip = new JSZip();
+                zip.loadAsync(file).then(function(contents) {
+                    const shpFile = Object.keys(contents.files).find(fileName => fileName.endsWith('.shp'));
+                    const dbfFile = Object.keys(contents.files).find(fileName => fileName.endsWith('.dbf'));
+                    if (shpFile && dbfFile) {
+                        Promise.all([
+                            contents.files[shpFile].async('arraybuffer'),
+                            contents.files[dbfFile].async('arraybuffer')
+                        ]).then(([shpBuffer, dbfBuffer]) => {
+                            shapefile.open(shpBuffer, dbfBuffer).then(source => {
+                                source.read().then(function log(result) {
+                                    if (result.done) return;
+                                    if (result.value && result.value.geometry.type === 'Point') {
+                                        const [lon, lat] = result.value.geometry.coordinates;
+                                        const siteName = result.value.properties ? result.value.properties.name || 'Sin nombre' : 'Sin nombre';
+                                        addMarker(lat, lon, siteName);
+                                        addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
+                                    }
+                                    source.read().then(log);
+                                });
+                            });
+                        });
+                    } else {
+                        alert('El archivo ZIP no contiene un Shapefile válido.');
+                    }
+                });
             } else {
                 alert('Formato no compatible. Cargue un archivo GeoJSON, CSV o ZIP.');
             }
@@ -386,4 +418,5 @@
     </script>
 </body>
 </html>
+
 
