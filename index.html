@@ -69,7 +69,6 @@
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
-            cursor: pointer;
         }
 
         table, th, td {
@@ -107,6 +106,19 @@
 
         .highlight {
             background-color: yellow !important;
+        }
+
+        .editable {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 4px;
+            text-align: center;
+        }
+
+        .editable:hover {
+            background-color: #f9f9f9;
+            cursor: text;
         }
     </style>
 </head>
@@ -250,7 +262,7 @@
                 <td>${decimalLon.toFixed(6)}</td>
                 <td>${dmsLat}</td>
                 <td>${dmsLon}</td>
-                <td>${siteName}</td>
+                <td contenteditable="true" class="editable">${siteName}</td>
             </tr>`;
             tableBody.innerHTML += row;
 
@@ -274,7 +286,7 @@
                     <td>${decimalLon.toFixed(6)}</td>
                     <td>${dmsLat}</td>
                     <td>${dmsLon}</td>
-                    <td>${siteName}</td>
+                    <td contenteditable="true" class="editable">${siteName}</td>
                 </tr>`;
                 tableBody.innerHTML += row;
             });
