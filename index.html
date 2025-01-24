@@ -68,49 +68,39 @@
             background: #0056b3;
         }
 
-        p {
+        p, select {
             margin: 10px 0 0;
             font-style: italic;
             color: #555;
         }
 
+        .result-list {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
     <h1>Coordinate Converter</h1>
 
     <div class="container">
-        <!-- DMS to Decimal Conversion -->
+        <!-- Coordinate Input and Conversion -->
         <div class="card">
-            <h2>Convert DMS to Decimal</h2>
-            <label for="dmsLat">Latitude (DMS):</label>
-            <input type="text" id="dmsLat" placeholder="e.g., 40°26'46"N">
+            <h2>Enter Coordinates</h2>
+            <label for="inputCoord">Coordinate (DMS or Decimal):</label>
+            <input type="text" id="inputCoord" placeholder="e.g., 40°26'46"N or 40.4462">
 
-            <label for="dmsLon">Longitude (DMS):</label>
-            <input type="text" id="dmsLon" placeholder="e.g., 79°58'56"W">
-
-            <button onclick="convertDMSToDecimal()">Convert to Decimal</button>
-            <p id="decimalResult"></p>
-        </div>
-
-        <!-- Decimal to DMS Conversion -->
-        <div class="card">
-            <h2>Convert Decimal to DMS</h2>
-            <label for="decimalLat">Latitude (Decimal):</label>
-            <input type="text" id="decimalLat" placeholder="e.g., 40.4462">
-
-            <label for="decimalLon">Longitude (Decimal):</label>
-            <input type="text" id="decimalLon" placeholder="e.g., -79.9822">
-
-            <button onclick="convertDecimalToDMS()">Convert to DMS</button>
-            <p id="dmsResult"></p>
+            <button onclick="generateOptions()">Generate Options</button>
+            <div id="results" class="result-list"></div>
         </div>
     </div>
 
     <script>
-        // Helper function to convert DMS to Decimal
         function DMSToDecimal(dms) {
-            const regex = /^(\d+)°(\d+)'(\d+\.?\d*)"([NSEW])$/;
+            const regex = /^\s*(\d+)°(\d+)'(\d+\.?\d*)"([NSEW])\s*$/;
             const match = dms.match(regex);
 
             if (!match) {
@@ -131,7 +121,6 @@
             return decimal;
         }
 
-        // Helper function to convert Decimal to DMS
         function DecimalToDMS(decimal, type) {
             const absolute = Math.abs(decimal);
             const degrees = Math.floor(absolute);
@@ -142,39 +131,42 @@
             return `${degrees}°${minutes}'${seconds}"${direction}`;
         }
 
-        // Convert Geographic (DMS) to Decimal
-        function convertDMSToDecimal() {
-            const dmsLat = document.getElementById('dmsLat').value;
-            const dmsLon = document.getElementById('dmsLon').value;
+        function generateOptions() {
+            const input = document.getElementById('inputCoord').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
 
-            const decimalLat = DMSToDecimal(dmsLat);
-            const decimalLon = DMSToDecimal(dmsLon);
+            let decimalLat, decimalLon, dmsLat, dmsLon;
 
-            if (decimalLat === null || decimalLon === null) {
-                document.getElementById('decimalResult').textContent = 'Please enter valid DMS coordinates.';
-                return;
+            // Check if input is DMS
+            if (/°|'|"/.test(input)) {
+                const dms = input.split(/[ ,]+/);
+                if (dms.length === 2) {
+                    decimalLat = DMSToDecimal(dms[0]);
+                    decimalLon = DMSToDecimal(dms[1]);
+                }
+            } else {
+                const decimals = input.split(/[ ,]+/).map(parseFloat);
+                if (decimals.length === 2 && !isNaN(decimals[0]) && !isNaN(decimals[1])) {
+                    decimalLat = decimals[0];
+                    decimalLon = decimals[1];
+                    dmsLat = DecimalToDMS(decimalLat, 'lat');
+                    dmsLon = DecimalToDMS(decimalLon, 'lon');
+                }
             }
 
-            document.getElementById('decimalResult').textContent = `Latitude: ${decimalLat.toFixed(6)}, Longitude: ${decimalLon.toFixed(6)}`;
-        }
-
-        // Convert Decimal to Geographic (DMS)
-        function convertDecimalToDMS() {
-            const decimalLat = parseFloat(document.getElementById('decimalLat').value);
-            const decimalLon = parseFloat(document.getElementById('decimalLon').value);
-
-            if (isNaN(decimalLat) || isNaN(decimalLon)) {
-                document.getElementById('dmsResult').textContent = 'Please enter valid decimal coordinates.';
-                return;
+            if (decimalLat !== undefined && decimalLon !== undefined) {
+                resultsDiv.innerHTML += `<p>Decimal Coordinates: Lat ${decimalLat.toFixed(6)}, Lon ${decimalLon.toFixed(6)}</p>`;
+            }
+            if (dmsLat && dmsLon) {
+                resultsDiv.innerHTML += `<p>DMS Coordinates: Lat ${dmsLat}, Lon ${dmsLon}</p>`;
             }
 
-            const dmsLat = DecimalToDMS(decimalLat, 'lat');
-            const dmsLon = DecimalToDMS(decimalLon, 'lon');
-
-            document.getElementById('dmsResult').textContent = `Latitude: ${dmsLat}, Longitude: ${dmsLon}`;
+            if (resultsDiv.innerHTML === '') {
+                resultsDiv.innerHTML = '<p>Invalid input. Please enter valid coordinates.</p>';
+            }
         }
     </script>
 </body>
 </html>
-
 
