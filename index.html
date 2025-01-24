@@ -132,6 +132,18 @@
             }).addTo(map);
         }
 
+        function decimalToDMS(decimal, type) {
+            const absolute = Math.abs(decimal);
+            const degrees = Math.floor(absolute);
+            const minutes = Math.floor((absolute - degrees) * 60);
+            const seconds = ((absolute - degrees - minutes / 60) * 3600).toFixed(2);
+            const direction = type === 'lat'
+                ? (decimal >= 0 ? 'N' : 'S')
+                : (decimal >= 0 ? 'E' : 'W');
+
+            return `${degrees}°${minutes}'${seconds}"${direction}`;
+        }
+
         function convertCoordinates() {
             const latInput = document.getElementById('latitude').value.trim();
             const lonInput = document.getElementById('longitude').value.trim();
@@ -145,10 +157,14 @@
                 return;
             }
 
+            const dmsLat = decimalToDMS(decimalLat, 'lat');
+            const dmsLon = decimalToDMS(decimalLon, 'lon');
+
             resultsDiv.innerHTML = `<p>Coordenadas decimales:<br>Latitud: ${decimalLat.toFixed(6)}<br>Longitud: ${decimalLon.toFixed(6)}</p>`;
+            resultsDiv.innerHTML += `<p>Coordenadas geográficas (DMS):<br>Latitud: ${dmsLat}<br>Longitud: ${dmsLon}</p>`;
 
             map.setView([decimalLat, decimalLon], 12);
-            L.marker([decimalLat, decimalLon]).addTo(map).bindPopup(`Latitud: ${decimalLat.toFixed(6)}<br>Longitud: ${decimalLon.toFixed(6)}`).openPopup();
+            L.marker([decimalLat, decimalLon]).addTo(map).bindPopup(`Latitud: ${dmsLat}<br>Longitud: ${dmsLon}`).openPopup();
         }
 
         window.onload = initializeMap;
