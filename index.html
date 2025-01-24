@@ -120,6 +120,19 @@
             background-color: #f9f9f9;
             cursor: text;
         }
+
+        .delete-btn {
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: darkred;
+        }
     </style>
 </head>
 <body>
@@ -151,6 +164,7 @@
                     <th>Latitud (DMS)</th>
                     <th>Longitud (DMS)</th>
                     <th>Sitio</th>
+                    <th>Eliminar</th>
                 </tr>
             </thead>
             <tbody>
@@ -256,13 +270,14 @@
         function addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
             const tableBody = document.querySelector('#historyTable tbody');
             historyCount++;
-            const row = `<tr onclick="highlightMarker(${markers.length - 1})">
+            const row = `<tr id="row-${historyCount}">
                 <td>${historyCount}</td>
                 <td>${decimalLat.toFixed(6)}</td>
                 <td>${decimalLon.toFixed(6)}</td>
                 <td>${dmsLat}</td>
                 <td>${dmsLon}</td>
                 <td contenteditable="true" class="editable">${siteName}</td>
+                <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
             </tr>`;
             tableBody.innerHTML += row;
 
@@ -280,16 +295,35 @@
                 addMarker(decimalLat, decimalLon, siteName);
 
                 const tableBody = document.querySelector('#historyTable tbody');
-                const row = `<tr onclick="highlightMarker(${index})">
+                const row = `<tr id="row-${index + 1}">
                     <td>${index + 1}</td>
                     <td>${decimalLat.toFixed(6)}</td>
                     <td>${decimalLon.toFixed(6)}</td>
                     <td>${dmsLat}</td>
                     <td>${dmsLon}</td>
                     <td contenteditable="true" class="editable">${siteName}</td>
+                    <td><button class="delete-btn" onclick="deleteEntry(${index})">Eliminar</button></td>
                 </tr>`;
                 tableBody.innerHTML += row;
             });
+        }
+
+        function deleteEntry(index) {
+            // Eliminar marcador del mapa
+            if (markers[index]) {
+                map.removeLayer(markers[index]);
+                markers.splice(index, 1);
+            }
+
+            // Eliminar del almacenamiento local
+            savedHistory.splice(index, 1);
+            localStorage.setItem('history', JSON.stringify(savedHistory));
+
+            // Actualizar la tabla
+            const tableBody = document.querySelector('#historyTable tbody');
+            tableBody.innerHTML = '';
+            historyCount = 0;
+            restoreHistory();
         }
 
         function highlightMarker(index) {
