@@ -4,28 +4,107 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coordinate Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 20px;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            margin: 20px;
+            gap: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 300px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        p {
+            margin: 10px 0 0;
+            font-style: italic;
+            color: #555;
+        }
+
+    </style>
 </head>
 <body>
     <h1>Coordinate Converter</h1>
 
-    <div>
-        <h2>Geographic (DMS) to Decimal</h2>
-        <label for="dmsLat">Latitude (DMS):</label>
-        <input type="text" id="dmsLat" placeholder="Enter latitude in DMS (e.g., 40°26'46"N, 40°26'46"S)">
-        <label for="dmsLon">Longitude (DMS):</label>
-        <input type="text" id="dmsLon" placeholder="Enter longitude in DMS (e.g., 79°58'56"W, 79°58'56"E)">
-        <button onclick="convertDMSToDecimal()">Convert to Decimal</button>
-        <p id="decimalResult"></p>
-    </div>
+    <div class="container">
+        <!-- DMS to Decimal Conversion -->
+        <div class="card">
+            <h2>Convert DMS to Decimal</h2>
+            <label for="dmsLat">Latitude (DMS):</label>
+            <input type="text" id="dmsLat" placeholder="e.g., 40°26'46"N">
 
-    <div>
-        <h2>Decimal to Geographic (DMS)</h2>
-        <label for="decimalLat">Latitude (Decimal):</label>
-        <input type="text" id="decimalLat" placeholder="Enter latitude in decimal (e.g., 40.4462, -40.4462)">
-        <label for="decimalLon">Longitude (Decimal):</label>
-        <input type="text" id="decimalLon" placeholder="Enter longitude in decimal (e.g., -79.9822, 79.9822)">
-        <button onclick="convertDecimalToDMS()">Convert to DMS</button>
-        <p id="dmsResult"></p>
+            <label for="dmsLon">Longitude (DMS):</label>
+            <input type="text" id="dmsLon" placeholder="e.g., 79°58'56"W">
+
+            <button onclick="convertDMSToDecimal()">Convert to Decimal</button>
+            <p id="decimalResult"></p>
+        </div>
+
+        <!-- Decimal to DMS Conversion -->
+        <div class="card">
+            <h2>Convert Decimal to DMS</h2>
+            <label for="decimalLat">Latitude (Decimal):</label>
+            <input type="text" id="decimalLat" placeholder="e.g., 40.4462">
+
+            <label for="decimalLon">Longitude (Decimal):</label>
+            <input type="text" id="decimalLon" placeholder="e.g., -79.9822">
+
+            <button onclick="convertDecimalToDMS()">Convert to DMS</button>
+            <p id="dmsResult"></p>
+        </div>
     </div>
 
     <script>
@@ -97,4 +176,5 @@
     </script>
 </body>
 </html>
+
 
