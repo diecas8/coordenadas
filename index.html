@@ -6,9 +6,6 @@
     <title>Convertidor de Coordenadas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.1/papaparse.min.js"></script>
-    <script src="https://unpkg.com/shapefile@0.6.6/shapefile.js"></script>
-    <script src="https://unpkg.com/jszip@3.7.1/dist/jszip.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -136,23 +133,6 @@
         .delete-btn:hover {
             background: darkred;
         }
-
-        .file-input {
-            margin-top: 20px;
-        }
-
-        .view-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .view-btn:hover {
-            background: #218838;
-        }
     </style>
 </head>
 <body>
@@ -169,11 +149,6 @@
 
             <button onclick="convertCoordinates()">Convertir y Mostrar</button>
             <div id="results"></div>
-
-            <div class="file-input">
-                <h3>Cargar Datos</h3>
-                <input type="file" id="fileInput" accept=".geojson,.csv,.zip" onchange="handleFileUpload(event)">
-            </div>
         </div>
 
         <div id="map"></div>
@@ -189,7 +164,6 @@
                     <th>Latitud (DMS)</th>
                     <th>Longitud (DMS)</th>
                     <th>Sitio</th>
-                    <th>Ver</th>
                     <th>Eliminar</th>
                 </tr>
             </thead>
@@ -310,19 +284,11 @@
                 <td>${dmsLat}</td>
                 <td>${dmsLon}</td>
                 <td contenteditable="true" class="editable">${siteName}</td>
-                <td><button class="view-btn" onclick="viewOnMap(${historyCount - 1})">Ver</button></td>
                 <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
             </tr>`;
             tableBody.innerHTML += row;
 
             saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
-        }
-
-        function viewOnMap(index) {
-            if (markers[index]) {
-                map.setView(markers[index].getLatLng(), 15);
-                markers[index].openPopup();
-            }
         }
 
         function saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
@@ -351,7 +317,6 @@
                     <td>${dmsLat}</td>
                     <td>${dmsLon}</td>
                     <td contenteditable="true" class="editable">${siteName}</td>
-                    <td><button class="view-btn" onclick="viewOnMap(${index})">Ver</button></td>
                     <td><button class="delete-btn" onclick="deleteEntry(${index})">Eliminar</button></td>
                 </tr>`;
                 tableBody.innerHTML += row;
@@ -374,6 +339,11 @@
             tableBody.innerHTML = '';
             historyCount = 0;
             restoreHistory();
+        }
+
+        function highlightMarker(index) {
+            map.setView(markers[index].getLatLng(), 12);
+            markers[index].openPopup();
         }
 
         window.onload = initializeMap;
