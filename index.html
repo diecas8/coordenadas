@@ -96,10 +96,10 @@
         <div class="card">
             <h2>Introducir coordenadas geográficas</h2>
             <label for="latitude">Latitud (DMS):</label>
-            <input type="text" id="latitude" placeholder="e.g., 43°38'59.36"N">
+            <input type="text" id="latitude" placeholder="e.g., 43°38'59.36\"N">
 
             <label for="longitude">Longitud (DMS):</label>
-            <input type="text" id="longitude" placeholder="e.g., 76°7'58.76"W">
+            <input type="text" id="longitude" placeholder="e.g., 76°7'58.76\"W">
 
             <button onclick="convertCoordinates()">Convertir</button>
             <div id="results"></div>
@@ -142,7 +142,7 @@
             const decimalLon = DMSToDecimal(lonInput);
 
             if (decimalLat === null || decimalLon === null) {
-                resultsDiv.innerHTML = '<p class="error">Entrada no válida. Ingrese coordenadas DMS válidas (por ejemplo, 43°38'59.36"N).</p>';
+                resultsDiv.innerHTML = '<p class="error">Entrada no válida. Ingrese coordenadas DMS válidas (por ejemplo, 43°38\'59.36\"N).</p>';
                 return;
             }
 
