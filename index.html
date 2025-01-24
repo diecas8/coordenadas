@@ -6,6 +6,8 @@
     <title>Convertidor de Coordenadas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/shapefile@0.6.6/shapefile.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -133,6 +135,10 @@
         .delete-btn:hover {
             background: darkred;
         }
+
+        .file-input {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -149,6 +155,11 @@
 
             <button onclick="convertCoordinates()">Convertir y Mostrar</button>
             <div id="results"></div>
+
+            <div class="file-input">
+                <h3>Cargar Datos</h3>
+                <input type="file" id="fileInput" accept=".geojson,.csv,.zip" onchange="handleFileUpload(event)">
+            </div>
         </div>
 
         <div id="map"></div>
@@ -329,6 +340,46 @@
         function highlightMarker(index) {
             map.setView(markers[index].getLatLng(), 12);
             markers[index].openPopup();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file.name.endsWith('.geojson')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const geojson = JSON.parse(e.target.result);
+                    L.geoJSON(geojson, {
+                        onEachFeature: function(feature, layer) {
+                            if (feature.geometry.type === 'Point') {
+                                const [lon, lat] = feature.geometry.coordinates;
+                                const siteName = feature.properties ? feature.properties.name || 'Sin nombre' : 'Sin nombre';
+                                addMarker(lat, lon, siteName);
+                                addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
+                            }
+                        }
+                    }).addTo(map);
+                };
+                reader.readAsText(file);
+            } else if (file.name.endsWith('.csv')) {
+                Papa.parse(file, {
+                    header: true,
+                    complete: function(results) {
+                        results.data.forEach(row => {
+                            const lat = parseFloat(row.lat);
+                            const lon = parseFloat(row.lon);
+                            const siteName = row.name || 'Sin nombre';
+                            if (!isNaN(lat) && !isNaN(lon)) {
+                                addMarker(lat, lon, siteName);
+                                addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
+                            }
+                        });
+                    }
+                });
+            } else if (file.name.endsWith('.zip')) {
+                alert('Soporte para Shapefile en desarrollo');
+            } else {
+                alert('Formato no compatible. Cargue un archivo GeoJSON, CSV o ZIP.');
+            }
         }
 
         window.onload = initializeMap;
