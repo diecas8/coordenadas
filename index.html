@@ -23,7 +23,7 @@
 
         .container {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: row;
             justify-content: space-between;
             align-items: flex-start;
             margin: 20px;
@@ -35,9 +35,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             padding: 20px;
-            width: 100%;
-            max-width: 300px;
-            flex: 1 1 300px;
+            width: 30%;
             box-sizing: border-box;
         }
 
@@ -53,7 +51,6 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             margin-bottom: 10px;
-            box-sizing: border-box;
         }
 
         button {
@@ -64,7 +61,6 @@
             border-radius: 4px;
             cursor: pointer;
             width: 100%;
-            box-sizing: border-box;
         }
 
         button:hover {
@@ -75,7 +71,6 @@
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
-            overflow-x: auto;
         }
 
         table, th, td {
@@ -88,11 +83,10 @@
         }
 
         #map {
-            width: 100%;
+            width: 65%;
             height: 400px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            flex: 1 1 100%;
         }
 
         .footer {
@@ -102,31 +96,9 @@
             color: #777;
         }
 
-        .error {
-            color: red;
-            font-weight: bold;
-        }
-
         .history-container {
             width: 100%;
             overflow-x: auto;
-        }
-
-        .highlight {
-            background-color: yellow !important;
-        }
-
-        .editable {
-            background-color: #fff;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 4px;
-            text-align: center;
-        }
-
-        .editable:hover {
-            background-color: #f9f9f9;
-            cursor: text;
         }
 
         .delete-btn {
@@ -141,55 +113,6 @@
         .delete-btn:hover {
             background: darkred;
         }
-
-        @media screen and (max-width: 768px) {
-            h1 {
-                font-size: 1.5em;
-            }
-
-            .card {
-                max-width: 100%;
-                flex: 1 1 100%;
-            }
-
-            #map {
-                height: 300px;
-            }
-
-            table th, table td {
-                font-size: 0.9em;
-                padding: 5px;
-            }
-        }
-
-        @media screen and (max-width: 480px) {
-            h1 {
-                font-size: 1.2em;
-            }
-
-            .card {
-                padding: 15px;
-            }
-
-            button {
-                padding: 8px;
-                font-size: 0.9em;
-            }
-
-            input {
-                padding: 6px;
-                font-size: 0.9em;
-            }
-
-            #map {
-                height: 250px;
-            }
-
-            table th, table td {
-                font-size: 0.8em;
-                padding: 4px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -199,18 +122,15 @@
         <div class="card">
             <h2>Introducir Coordenadas</h2>
             <label for="latitude">Latitud:</label>
-            <input type="text" id="latitude" placeholder="Formato: 43.649822 (Google Earth)">
+            <input type="text" id="latitude" placeholder="Ejemplo: 43.649822">
 
             <label for="longitude">Longitud:</label>
-            <input type="text" id="longitude" placeholder="Formato: -79.397942 (Google Earth)">
+            <input type="text" id="longitude" placeholder="Ejemplo: -79.397942">
 
             <button onclick="convertCoordinates()">Convertir y Mostrar</button>
-            <div id="results"></div>
 
-            <div class="file-input">
-                <h3>Cargar Archivo CSV</h3>
-                <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)">
-            </div>
+            <h3>Cargar Archivo CSV</h3>
+            <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)">
         </div>
 
         <div id="map"></div>
@@ -230,7 +150,7 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- Aquí se agregarán las consultas realizadas -->
+                <!-- Registros se agregarán aquí -->
             </tbody>
         </table>
     </div>
@@ -241,7 +161,7 @@
 
     <script>
         let map;
-        let markers = []; // Array para guardar los marcadores
+        let markers = [];
         let historyCount = 0;
         const savedHistory = JSON.parse(localStorage.getItem('history')) || [];
 
@@ -254,82 +174,68 @@
                 attribution: '© Google Maps'
             }).addTo(map);
 
-            map.on('click', async function (e) {
+            map.on('click', function (e) {
                 const { lat, lng } = e.latlng;
                 document.getElementById('latitude').value = lat.toFixed(6);
                 document.getElementById('longitude').value = lng.toFixed(6);
-
-                const siteName = await getSiteName(lat, lng);
-                addMarker(lat, lng, siteName);
-                addToHistory(lat, lng, decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName);
             });
 
             restoreHistory();
         }
 
-        function decimalToDMS(decimal, type) {
-            const absolute = Math.abs(decimal);
-            const degrees = Math.floor(absolute);
-            const minutes = Math.floor((absolute - degrees) * 60);
-            const seconds = ((absolute - degrees - minutes / 60) * 3600).toFixed(2);
-            const direction = type === 'lat'
-                ? (decimal >= 0 ? 'N' : 'S')
-                : (decimal >= 0 ? 'E' : 'W');
-
-            return `${degrees}°${minutes}'${seconds}"${direction}`;
-        }
-
-        async function getSiteName(lat, lon) {
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-                const data = await response.json();
-                return data.display_name || 'Sitio desconocido';
-            } catch (error) {
-                console.error("Error fetching site name:", error);
-                return 'Sitio desconocido';
-            }
-        }
-
-        function addMarker(lat, lon, siteName) {
-            const colors = ['red', 'blue', 'green', 'orange', 'purple'];
-            const color = colors[historyCount % colors.length];
-
-            const marker = L.circleMarker([lat, lon], {
-                radius: 8,
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.7
-            }).addTo(map);
-
-            marker.bindPopup(`Sitio: ${siteName}<br>Latitud: ${lat.toFixed(6)}<br>Longitud: ${lon.toFixed(6)}`);
-            markers.push(marker);
-        }
-
         function convertCoordinates() {
-            const latInput = document.getElementById('latitude').value.trim();
-            const lonInput = document.getElementById('longitude').value.trim();
-            const resultsDiv = document.getElementById('results');
-
-            const decimalLat = parseFloat(latInput);
-            const decimalLon = parseFloat(lonInput);
-
-            if (isNaN(decimalLat) || isNaN(decimalLon)) {
-                resultsDiv.innerHTML = '<p class="error">Por favor, ingrese coordenadas válidas en formato decimal.</p>';
+            const lat = parseFloat(document.getElementById('latitude').value);
+            const lon = parseFloat(document.getElementById('longitude').value);
+            if (isNaN(lat) || isNaN(lon)) {
+                alert('Por favor, ingrese coordenadas válidas.');
                 return;
             }
+            const dmsLat = toDMS(lat, 'lat');
+            const dmsLon = toDMS(lon, 'lon');
+            addToHistory(lat, lon, dmsLat, dmsLon, 'Manual');
+        }
 
-            const dmsLat = decimalToDMS(decimalLat, 'lat');
-            const dmsLon = decimalToDMS(decimalLon, 'lon');
+        function toDMS(value, type) {
+            const dir = type === 'lat' ? (value >= 0 ? 'N' : 'S') : (value >= 0 ? 'E' : 'W');
+            const absValue = Math.abs(value);
+            const degrees = Math.floor(absValue);
+            const minutes = Math.floor((absValue - degrees) * 60);
+            const seconds = ((absValue - degrees - minutes / 60) * 3600).toFixed(2);
+            return `${degrees}°${minutes}'${seconds}" ${dir}`;
+        }
 
-            resultsDiv.innerHTML = `<p>Coordenadas decimales:<br>Latitud: ${decimalLat.toFixed(6)}<br>Longitud: ${decimalLon.toFixed(6)}</p>`;
-            resultsDiv.innerHTML += `<p>Coordenadas geográficas (DMS):<br>Latitud: ${dmsLat}<br>Longitud: ${dmsLon}</p>`;
+        function addToHistory(lat, lon, dmsLat, dmsLon, source) {
+            const tableBody = document.querySelector('#historyTable tbody');
+            historyCount++;
+            const row = `<tr>
+                <td>${historyCount}</td>
+                <td>${lat.toFixed(6)}</td>
+                <td>${lon.toFixed(6)}</td>
+                <td>${dmsLat}</td>
+                <td>${dmsLon}</td>
+                <td>${source}</td>
+                <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
+            </tr>`;
+            tableBody.innerHTML += row;
 
-            getSiteName(decimalLat, decimalLon).then(siteName => {
-                addMarker(decimalLat, decimalLon, siteName);
-                addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
-            }).catch(error => {
-                console.error("Error adding marker:", error);
+            saveToLocalStorage(lat, lon, dmsLat, dmsLon, source);
+        }
+
+        function saveToLocalStorage(lat, lon, dmsLat, dmsLon, source) {
+            savedHistory.push({ lat, lon, dmsLat, dmsLon, source });
+            localStorage.setItem('history', JSON.stringify(savedHistory));
+        }
+
+        function restoreHistory() {
+            savedHistory.forEach(({ lat, lon, dmsLat, dmsLon, source }) => {
+                addToHistory(lat, lon, dmsLat, dmsLon, source);
             });
+        }
+
+        function deleteEntry(index) {
+            savedHistory.splice(index, 1);
+            localStorage.setItem('history', JSON.stringify(savedHistory));
+            location.reload();
         }
 
         function handleCSVUpload(event) {
@@ -337,107 +243,17 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function (e) {
-                    const text = e.target.result;
-                    Papa.parse(text, {
-                        header: true,
-                        complete: function (results) {
-                            results.data.forEach(row => {
-                                const lat = parseFloat(row.lat);
-                                const lon = parseFloat(row.lon);
-                                const siteName = row.name || 'Sitio desconocido';
-                                if (!isNaN(lat) && !isNaN(lon)) {
-                                    addMarker(lat, lon, siteName);
-                                    addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
-                                } else {
-                                    console.error('Coordenadas inválidas en el archivo CSV:', row);
-                                }
-                            });
-                        },
-                        error: function (error) {
-                            console.error("Error procesando el archivo CSV:", error);
+                    const content = e.target.result;
+                    const rows = content.split('\\n');
+                    rows.forEach((row, idx) => {
+                        if (idx === 0) return; // Skip header
+                        const [lat, lon, source] = row.split(',');
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            addToHistory(parseFloat(lat), parseFloat(lon), toDMS(lat, 'lat'), toDMS(lon, 'lon'), source || 'CSV');
                         }
                     });
                 };
                 reader.readAsText(file);
-            }
-        }
-
-        function addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
-            if (isNaN(decimalLat) || isNaN(decimalLon)) {
-                console.error("Invalid coordinates passed to addToHistory");
-                return;
-            }
-            const tableBody = document.querySelector('#historyTable tbody');
-            historyCount++;
-            const row = `<tr id="row-${historyCount}" onclick="highlightMarker(${historyCount - 1})">
-                <td>${historyCount}</td>
-                <td>${decimalLat.toFixed(6)}</td>
-                <td>${decimalLon.toFixed(6)}</td>
-                <td>${dmsLat}</td>
-                <td>${dmsLon}</td>
-                <td contenteditable="true" class="editable">${siteName}</td>
-                <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
-            </tr>`;
-            tableBody.innerHTML += row;
-
-            saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
-        }
-
-        function saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
-            if (isNaN(decimalLat) || isNaN(decimalLon)) {
-                console.error("Invalid coordinates passed to saveToLocalStorage");
-                return;
-            }
-            savedHistory.push({ decimalLat, decimalLon, dmsLat, dmsLon, siteName });
-            localStorage.setItem('history', JSON.stringify(savedHistory));
-        }
-
-        function restoreHistory() {
-            savedHistory.forEach((entry, index) => {
-                const { decimalLat, decimalLon, dmsLat, dmsLon, siteName } = entry;
-                if (isNaN(decimalLat) || isNaN(decimalLon)) {
-                    console.error("Invalid coordinates found in saved history");
-                    return;
-                }
-                addMarker(decimalLat, decimalLon, siteName);
-
-                const tableBody = document.querySelector('#historyTable tbody');
-                const row = `<tr id="row-${index + 1}" onclick="highlightMarker(${index})">
-                    <td>${index + 1}</td>
-                    <td>${decimalLat.toFixed(6)}</td>
-                    <td>${decimalLon.toFixed(6)}</td>
-                    <td>${dmsLat}</td>
-                    <td>${dmsLon}</td>
-                    <td contenteditable="true" class="editable">${siteName}</td>
-                    <td><button class="delete-btn" onclick="deleteEntry(${index})">Eliminar</button></td>
-                </tr>`;
-                tableBody.innerHTML += row;
-            });
-        }
-
-        function deleteEntry(index) {
-            // Eliminar marcador del mapa
-            if (markers[index]) {
-                map.removeLayer(markers[index]);
-                markers.splice(index, 1);
-            }
-
-            // Eliminar del almacenamiento local
-            savedHistory.splice(index, 1);
-            localStorage.setItem('history', JSON.stringify(savedHistory));
-
-            // Actualizar la tabla
-            const tableBody = document.querySelector('#historyTable tbody');
-            tableBody.innerHTML = '';
-            historyCount = 0;
-            restoreHistory();
-        }
-
-        function highlightMarker(index) {
-            const marker = markers[index];
-            if (marker) {
-                map.setView(marker.getLatLng(), 12);
-                marker.openPopup();
             }
         }
 
