@@ -148,6 +148,20 @@
         .export-btn:hover {
             background: darkgreen;
         }
+
+        .gps-btn {
+            background: orange;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .gps-btn:hover {
+            background: darkorange;
+        }
     </style>
 </head>
 <body>
@@ -163,6 +177,7 @@
             <input type="text" id="longitude" placeholder="Formato: -79.397942 (Google Earth)">
 
             <button onclick="convertCoordinates()">Convertir y Mostrar</button>
+            <button class="gps-btn" onclick="getCurrentLocation()">Capturar Ubicación Actual</button>
             <div id="results"></div>
         </div>
 
@@ -375,8 +390,32 @@
             XLSX.writeFile(wb, 'historial_coordenadas.xlsx');
         }
 
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    document.getElementById('latitude').value = lat.toFixed(6);
+                    document.getElementById('longitude').value = lon.toFixed(6);
+
+                    getSiteName(lat, lon).then(siteName => {
+                        addMarker(lat, lon, siteName);
+                        addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
+                    }).catch(error => {
+                        console.error("Error adding marker from GPS:", error);
+                    });
+                }, error => {
+                    alert('Error obteniendo la ubicación actual: ' + error.message);
+                });
+            } else {
+                alert('Geolocalización no soportada en este navegador.');
+            }
+        }
+
         window.onload = initializeMap;
     </script>
 </body>
 </html>
+
 
