@@ -152,6 +152,10 @@
         .editable:hover {
             background-color: #f9f9f9;
         }
+
+        .highlight-row {
+            background-color: #ffff99;
+        }
     </style>
 </head>
 <body>
@@ -281,7 +285,7 @@
             const tableBody = document.querySelector('#historyTable tbody');
             historyCount++;
 
-            const row = `<tr>
+            const row = `<tr onclick="highlightMarker(${historyCount - 1})">
                 <td>${historyCount}</td>
                 <td>${lat.toFixed(6)}</td>
                 <td>${lon.toFixed(6)}</td>
@@ -302,7 +306,7 @@
         }
 
         function restoreHistory() {
-            savedHistory.forEach(({ lat, lon, dmsLat, dmsLon, siteName, notes }) => {
+            savedHistory.forEach(({ lat, lon, dmsLat, dmsLon, siteName, notes }, index) => {
                 addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes);
                 addMarker(lat, lon, siteName);
             });
@@ -314,6 +318,23 @@
             savedHistory.splice(index, 1);
             localStorage.setItem('history', JSON.stringify(savedHistory));
             location.reload();
+        }
+
+        function highlightMarker(index) {
+            const marker = markers[index];
+            if (marker) {
+                map.setView(marker.getLatLng(), 15);
+                marker.openPopup();
+            }
+
+            const rows = document.querySelectorAll('#historyTable tbody tr');
+            rows.forEach((row, i) => {
+                if (i === index) {
+                    row.classList.add('highlight-row');
+                } else {
+                    row.classList.remove('highlight-row');
+                }
+            });
         }
 
         function exportToExcel() {
@@ -350,5 +371,6 @@
     </script>
 </body>
 </html>
+
 
 
