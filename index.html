@@ -176,6 +176,9 @@
             <label for="longitude">Longitud:</label>
             <input type="text" id="longitude" placeholder="Formato: -79.397942 (Google Earth)">
 
+            <label for="notes">Notas/Etiquetas:</label>
+            <input type="text" id="notes" placeholder="Ingrese una nota o etiqueta opcional">
+
             <button onclick="convertCoordinates()">Convertir y Mostrar</button>
             <button class="gps-btn" onclick="getCurrentLocation()">Capturar Ubicación Actual</button>
             <div id="results"></div>
@@ -194,6 +197,7 @@
                     <th>Latitud (DMS)</th>
                     <th>Longitud (DMS)</th>
                     <th>Sitio</th>
+                    <th>Notas/Etiquetas</th>
                     <th>Eliminar</th>
                 </tr>
             </thead>
@@ -230,7 +234,7 @@
 
                 const siteName = await getSiteName(lat, lng);
                 addMarker(lat, lng, siteName);
-                addToHistory(lat, lng, decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName);
+                addToHistory(lat, lng, decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName, '');
             });
 
             restoreHistory();
@@ -277,6 +281,7 @@
         function convertCoordinates() {
             const latInput = document.getElementById('latitude').value.trim();
             const lonInput = document.getElementById('longitude').value.trim();
+            const notesInput = document.getElementById('notes').value.trim();
             const resultsDiv = document.getElementById('results');
 
             const decimalLat = parseFloat(latInput);
@@ -295,13 +300,13 @@
 
             getSiteName(decimalLat, decimalLon).then(siteName => {
                 addMarker(decimalLat, decimalLon, siteName);
-                addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
+                addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName, notesInput);
             }).catch(error => {
                 console.error("Error adding marker:", error);
             });
         }
 
-        function addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
+        function addToHistory(decimalLat, decimalLon, dmsLat, dmsLon, siteName, notes) {
             if (isNaN(decimalLat) || isNaN(decimalLon)) {
                 console.error("Invalid coordinates passed to addToHistory");
                 return;
@@ -315,25 +320,26 @@
                 <td>${dmsLat}</td>
                 <td>${dmsLon}</td>
                 <td contenteditable="true" class="editable">${siteName}</td>
+                <td contenteditable="true" class="editable">${notes}</td>
                 <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
             </tr>`;
             tableBody.innerHTML += row;
 
-            saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName);
+            saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName, notes);
         }
 
-        function saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName) {
+        function saveToLocalStorage(decimalLat, decimalLon, dmsLat, dmsLon, siteName, notes) {
             if (isNaN(decimalLat) || isNaN(decimalLon)) {
                 console.error("Invalid coordinates passed to saveToLocalStorage");
                 return;
             }
-            savedHistory.push({ decimalLat, decimalLon, dmsLat, dmsLon, siteName });
+            savedHistory.push({ decimalLat, decimalLon, dmsLat, dmsLon, siteName, notes });
             localStorage.setItem('history', JSON.stringify(savedHistory));
         }
 
         function restoreHistory() {
             savedHistory.forEach((entry, index) => {
-                const { decimalLat, decimalLon, dmsLat, dmsLon, siteName } = entry;
+                const { decimalLat, decimalLon, dmsLat, dmsLon, siteName, notes } = entry;
                 if (isNaN(decimalLat) || isNaN(decimalLon)) {
                     console.error("Invalid coordinates found in saved history");
                     return;
@@ -348,6 +354,7 @@
                     <td>${dmsLat}</td>
                     <td>${dmsLon}</td>
                     <td contenteditable="true" class="editable">${siteName}</td>
+                    <td contenteditable="true" class="editable">${notes}</td>
                     <td><button class="delete-btn" onclick="deleteEntry(${index})">Eliminar</button></td>
                 </tr>`;
                 tableBody.innerHTML += row;
@@ -400,8 +407,9 @@
                     document.getElementById('longitude').value = lon.toFixed(6);
 
                     getSiteName(lat, lon).then(siteName => {
+                        const notesInput = document.getElementById('notes').value.trim();
                         addMarker(lat, lon, siteName);
-                        addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName);
+                        addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName, notesInput);
                     }).catch(error => {
                         console.error("Error adding marker from GPS:", error);
                     });
