@@ -139,6 +139,19 @@
         .export-btn:hover {
             background: darkgreen;
         }
+
+        .editable {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px;
+            text-align: center;
+            cursor: text;
+        }
+
+        .editable:hover {
+            background-color: #f9f9f9;
+        }
     </style>
 </head>
 <body>
@@ -274,8 +287,8 @@
                 <td>${lon.toFixed(6)}</td>
                 <td>${dmsLat}</td>
                 <td>${dmsLon}</td>
-                <td>${siteName}</td>
-                <td>${notes}</td>
+                <td contenteditable="true" class="editable">${siteName}</td>
+                <td contenteditable="true" class="editable">${notes}</td>
                 <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
             </tr>`;
 
@@ -337,6 +350,5 @@
     </script>
 </body>
 </html>
-
 
 
