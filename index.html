@@ -151,6 +151,12 @@
             const tableBody = document.querySelector('#historyTable tbody');
             historyCount++;
 
+            // Validar que lat y lon sean números
+            if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) {
+                console.error('Coordenadas inválidas:', lat, lon);
+                return;
+            }
+
             const row = `<tr onclick="highlightMarker(${historyCount - 1})">
                 <td>${historyCount}</td>
                 <td>${lat.toFixed(6)}</td>
@@ -172,9 +178,14 @@
         }
 
         function restoreHistory() {
-            savedHistory.forEach(({ lat, lon, dmsLat, dmsLon, siteName, notes }, index) => {
-                addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes);
-                addMarker(lat, lon, siteName);
+            savedHistory.forEach((entry, index) => {
+                // Validar que la entrada tenga los datos correctos
+                if (entry && typeof entry.lat === 'number' && typeof entry.lon === 'number') {
+                    addToHistory(entry.lat, entry.lon, entry.dmsLat, entry.dmsLon, entry.siteName, entry.notes);
+                    addMarker(entry.lat, entry.lon, entry.siteName);
+                } else {
+                    console.error('Entrada inválida en el historial:', entry);
+                }
             });
         }
 
@@ -294,6 +305,5 @@
     </script>
 </body>
 </html>
-
 
 
