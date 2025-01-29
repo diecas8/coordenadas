@@ -61,6 +61,7 @@
             border-radius: 4px;
             cursor: pointer;
             width: 100%;
+            margin-bottom: 10px;
         }
 
         button:hover {
@@ -134,6 +135,7 @@
             padding: 10px;
             border-radius: 4px;
             cursor: pointer;
+            margin-right: 10px;
         }
 
         .export-btn:hover {
@@ -199,6 +201,9 @@
             </tbody>
         </table>
         <button class="export-btn" onclick="exportToExcel()">Exportar a Excel</button>
+        <button class="export-btn" onclick="exportToCSV()">Exportar a CSV</button>
+        <button class="export-btn" onclick="exportToJSON()">Exportar a JSON</button>
+        <button class="export-btn" onclick="saveEdits()">Guardar Cambios</button>
     </div>
 
     <div class="footer">
@@ -244,13 +249,17 @@
             }
         }
 
+        function isValidCoordinate(lat, lon) {
+            return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+        }
+
         function convertCoordinates() {
             const latInput = parseFloat(document.getElementById('latitude').value);
             const lonInput = parseFloat(document.getElementById('longitude').value);
             const notes = document.getElementById('notes').value.trim();
 
-            if (isNaN(latInput) || isNaN(lonInput)) {
-                alert('Por favor, ingrese coordenadas válidas.');
+            if (!isValidCoordinate(latInput, lonInput)) {
+                alert('Por favor, ingrese coordenadas válidas (Latitud: -90 a 90, Longitud: -180 a 180).');
                 return;
             }
 
@@ -279,6 +288,12 @@
             const marker = L.marker([lat, lon]).addTo(map);
             marker.bindPopup(`Sitio: ${siteName}<br>Latitud: ${lat.toFixed(6)}<br>Longitud: ${lon.toFixed(6)}`);
             markers.push(marker);
+            fitMapToMarkers();
+        }
+
+        function fitMapToMarkers() {
+            const group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds());
         }
 
         function addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes) {
@@ -313,11 +328,13 @@
         }
 
         function deleteEntry(index) {
-            markers[index].remove();
-            markers.splice(index, 1);
-            savedHistory.splice(index, 1);
-            localStorage.setItem('history', JSON.stringify(savedHistory));
-            location.reload();
+            if (confirm('¿Estás seguro de eliminar esta entrada?')) {
+                markers[index].remove();
+                markers.splice(index, 1);
+                savedHistory.splice(index, 1);
+                localStorage.setItem('history', JSON.stringify(savedHistory));
+                location.reload();
+            }
         }
 
         function highlightMarker(index) {
@@ -343,6 +360,43 @@
             const ws = XLSX.utils.table_to_sheet(table);
             XLSX.utils.book_append_sheet(wb, ws, 'Historial');
             XLSX.writeFile(wb, 'historial_coordenadas.xlsx');
+        }
+
+        function exportToCSV() {
+            const table = document.getElementById('historyTable');
+            const ws = XLSX.utils.table_to_sheet(table);
+            const csv = XLSX.utils.sheet_to_csv(ws);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'historial_coordenadas.csv';
+            link.click();
+        }
+
+        function exportToJSON() {
+            const json = JSON.stringify(savedHistory, null, 2);
+            const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'historial_coordenadas.json';
+            link.click();
+        }
+
+        function saveEdits() {
+            const rows = document.querySelectorAll('#historyTable tbody tr');
+            savedHistory.length = 0; // Limpiar el historial guardado
+
+            rows.forEach((row, index) => {
+                const siteName = row.querySelector('td:nth-child(6)').innerText;
+                const notes = row.querySelector('td:nth-child(7)').innerText;
+                const lat = parseFloat(row.querySelector('td:nth-child(2)').innerText);
+                const lon = parseFloat(row.querySelector('td:nth-child(3)').innerText);
+
+                savedHistory.push({ lat, lon, siteName, notes });
+            });
+
+            localStorage.setItem('history', JSON.stringify(savedHistory));
+            alert('Cambios guardados correctamente.');
         }
 
         function getCurrentLocation() {
