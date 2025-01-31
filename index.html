@@ -201,9 +201,6 @@
             </tbody>
         </table>
         <button class="export-btn" onclick="exportToExcel()">Exportar a Excel</button>
-        <button class="export-btn" onclick="exportToCSV()">Exportar a CSV</button>
-        <button class="export-btn" onclick="exportToJSON()">Exportar a JSON</button>
-        <button class="export-btn" onclick="saveEdits()">Guardar Cambios</button>
     </div>
 
     <div class="footer">
@@ -389,43 +386,6 @@
             const ws = XLSX.utils.table_to_sheet(table);
             XLSX.utils.book_append_sheet(wb, ws, 'Historial');
             XLSX.writeFile(wb, 'historial_coordenadas.xlsx');
-        }
-
-        function exportToCSV() {
-            const table = document.getElementById('historyTable');
-            const ws = XLSX.utils.table_to_sheet(table);
-            const csv = XLSX.utils.sheet_to_csv(ws);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'historial_coordenadas.csv';
-            link.click();
-        }
-
-        function exportToJSON() {
-            const json = JSON.stringify(savedHistory, null, 2);
-            const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'historial_coordenadas.json';
-            link.click();
-        }
-
-        function saveEdits() {
-            const rows = document.querySelectorAll('#historyTable tbody tr');
-            savedHistory.length = 0; // Limpiar el historial guardado
-
-            rows.forEach((row, index) => {
-                const siteName = row.querySelector('td:nth-child(6)').innerText;
-                const notes = row.querySelector('td:nth-child(7)').innerText;
-                const lat = parseFloat(row.querySelector('td:nth-child(2)').innerText);
-                const lon = parseFloat(row.querySelector('td:nth-child(3)').innerText);
-
-                savedHistory.push({ lat, lon, siteName, notes });
-            });
-
-            localStorage.setItem('history', JSON.stringify(savedHistory));
-            alert('Cambios guardados correctamente.');
         }
 
         function getCurrentLocation() {
