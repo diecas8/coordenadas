@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <!-- Plugin leaflet-googlemutant -->
     <script src="https://unpkg.com/leaflet.gridlayer.googlemutant@latest/dist/Leaflet.GoogleMutant.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -70,21 +69,6 @@
             background: #0056b3;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-
-        table, th, td {
-            border: 1px solid #ddd;
-            text-align: center;
-        }
-
-        th, td {
-            padding: 8px;
-        }
-
         #map {
             width: 65%;
             height: 400px;
@@ -97,68 +81,6 @@
             margin-top: 20px;
             font-size: 14px;
             color: #777;
-        }
-
-        .history-container {
-            width: 100%;
-            overflow-x: auto;
-        }
-
-        .delete-btn {
-            background: red;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .delete-btn:hover {
-            background: darkred;
-        }
-
-        .gps-btn {
-            background: orange;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .gps-btn:hover {
-            background: darkorange;
-        }
-
-        .export-btn {
-            background: green;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-
-        .export-btn:hover {
-            background: darkgreen;
-        }
-
-        .editable {
-            background-color: #fff;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 5px;
-            text-align: center;
-            cursor: text;
-        }
-
-        .editable:hover {
-            background-color: #f9f9f9;
-        }
-
-        .highlight-row {
-            background-color: #ffff99;
         }
     </style>
 </head>
@@ -184,27 +106,6 @@
         <div id="map"></div>
     </div>
 
-    <div class="history-container">
-        <table id="historyTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Latitud Decimal</th>
-                    <th>Longitud Decimal</th>
-                    <th>Latitud (DMS)</th>
-                    <th>Longitud (DMS)</th>
-                    <th>Sitio</th>
-                    <th>Notas/Etiquetas</th>
-                    <th>Eliminar</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Aquí se agregarán las consultas realizadas -->
-            </tbody>
-        </table>
-        <button class="export-btn" onclick="exportToExcel()">Exportar a Excel</button>
-    </div>
-
     <div class="footer">
         <p>Elaborado por Diego Castaño</p>
     </div>
@@ -212,17 +113,8 @@
     <script>
         let map;
         let markers = []; // Array para guardar los marcadores
-        let historyCount = 0;
-        const savedHistory = JSON.parse(localStorage.getItem('history')) || [];
 
         function initializeMap() {
-            // Asegúrate de que el contenedor del mapa tenga un tamaño definido
-            const mapContainer = document.getElementById('map');
-            if (!mapContainer) {
-                console.error('El contenedor del mapa no existe.');
-                return;
-            }
-
             // Inicializar el mapa
             map = L.map('map').setView([0, 0], 2);
 
@@ -235,64 +127,12 @@
             }).addTo(map);
 
             // Manejar clics en el mapa
-            map.on('click', async function (e) {
+            map.on('click', function (e) {
                 const { lat, lng } = e.latlng;
                 document.getElementById('latitude').value = lat.toFixed(6);
                 document.getElementById('longitude').value = lng.toFixed(6);
-
-                const siteName = await getSiteName(lat, lng);
-                addMarker(lat, lng, siteName);
-                addToHistory(lat, lng, decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName, 'Capturado en Mapa');
+                addMarker(lat, lng, 'Capturado en Mapa');
             });
-
-            // Restaurar el historial
-            restoreHistory();
-        }
-
-        async function getSiteName(lat, lon) {
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-                const data = await response.json();
-                return data.display_name || 'Sitio desconocido';
-            } catch (error) {
-                console.error("Error fetching site name:", error);
-                return 'Sitio desconocido';
-            }
-        }
-
-        function isValidCoordinate(lat, lon) {
-            return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
-        }
-
-        function convertCoordinates() {
-            const latInput = parseFloat(document.getElementById('latitude').value);
-            const lonInput = parseFloat(document.getElementById('longitude').value);
-            const notes = document.getElementById('notes').value.trim();
-
-            if (!isValidCoordinate(latInput, lonInput)) {
-                alert('Por favor, ingrese coordenadas válidas (Latitud: -90 a 90, Longitud: -180 a 180).');
-                return;
-            }
-
-            const dmsLat = decimalToDMS(latInput, 'lat');
-            const dmsLon = decimalToDMS(lonInput, 'lon');
-
-            getSiteName(latInput, lonInput).then(siteName => {
-                addMarker(latInput, lonInput, siteName);
-                addToHistory(latInput, lonInput, dmsLat, dmsLon, siteName, notes);
-            });
-        }
-
-        function decimalToDMS(decimal, type) {
-            const absolute = Math.abs(decimal);
-            const degrees = Math.floor(absolute);
-            const minutes = Math.floor((absolute - degrees) * 60);
-            const seconds = ((absolute - degrees - minutes / 60) * 3600).toFixed(2);
-            const direction = type === 'lat'
-                ? (decimal >= 0 ? 'N' : 'S')
-                : (decimal >= 0 ? 'E' : 'W');
-
-            return `${degrees}°${minutes}'${seconds}"${direction}`;
         }
 
         function addMarker(lat, lon, siteName) {
@@ -307,99 +147,17 @@
             map.fitBounds(group.getBounds());
         }
 
-        function addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes) {
-            const tableBody = document.querySelector('#historyTable tbody');
-            historyCount++;
+        function convertCoordinates() {
+            const latInput = parseFloat(document.getElementById('latitude').value);
+            const lonInput = parseFloat(document.getElementById('longitude').value);
+            const notes = document.getElementById('notes').value.trim();
 
-            // Validar que lat y lon sean números
-            if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) {
-                console.error('Coordenadas inválidas:', lat, lon);
+            if (isNaN(latInput) || isNaN(lonInput)) {
+                alert('Por favor, ingrese coordenadas válidas.');
                 return;
             }
 
-            const row = `<tr onclick="highlightMarker(${historyCount - 1})">
-                <td>${historyCount}</td>
-                <td>${lat.toFixed(6)}</td>
-                <td>${lon.toFixed(6)}</td>
-                <td>${dmsLat}</td>
-                <td>${dmsLon}</td>
-                <td contenteditable="true" class="editable">${siteName}</td>
-                <td contenteditable="true" class="editable">${notes}</td>
-                <td><button class="delete-btn" onclick="deleteEntry(${historyCount - 1})">Eliminar</button></td>
-            </tr>`;
-
-            tableBody.innerHTML += row;
-            saveToLocalStorage(lat, lon, dmsLat, dmsLon, siteName, notes);
-        }
-
-        function saveToLocalStorage(lat, lon, dmsLat, dmsLon, siteName, notes) {
-            savedHistory.push({ lat, lon, dmsLat, dmsLon, siteName, notes });
-            localStorage.setItem('history', JSON.stringify(savedHistory));
-        }
-
-        function restoreHistory() {
-            savedHistory.forEach((entry, index) => {
-                // Validar que la entrada tenga los datos correctos
-                if (entry && typeof entry.lat === 'number' && typeof entry.lon === 'number') {
-                    addToHistory(entry.lat, entry.lon, entry.dmsLat, entry.dmsLon, entry.siteName, entry.notes);
-                    addMarker(entry.lat, entry.lon, entry.siteName);
-                } else {
-                    console.error('Entrada inválida en el historial:', entry);
-                }
-            });
-        }
-
-        function deleteEntry(index) {
-            if (confirm('¿Estás seguro de eliminar esta entrada?')) {
-                // Eliminar el marcador del mapa
-                markers[index].remove();
-                markers.splice(index, 1);
-
-                // Eliminar la fila de la tabla
-                const tableBody = document.querySelector('#historyTable tbody');
-                const rows = tableBody.querySelectorAll('tr');
-                rows[index].remove();
-
-                // Eliminar la entrada del historial guardado
-                savedHistory.splice(index, 1);
-                localStorage.setItem('history', JSON.stringify(savedHistory));
-
-                // Actualizar los números de las filas
-                updateRowNumbers();
-            }
-        }
-
-        function updateRowNumbers() {
-            const tableBody = document.querySelector('#historyTable tbody');
-            const rows = tableBody.querySelectorAll('tr');
-            rows.forEach((row, index) => {
-                row.querySelector('td:first-child').innerText = index + 1;
-            });
-        }
-
-        function highlightMarker(index) {
-            const marker = markers[index];
-            if (marker) {
-                map.setView(marker.getLatLng(), 15);
-                marker.openPopup();
-            }
-
-            const rows = document.querySelectorAll('#historyTable tbody tr');
-            rows.forEach((row, i) => {
-                if (i === index) {
-                    row.classList.add('highlight-row');
-                } else {
-                    row.classList.remove('highlight-row');
-                }
-            });
-        }
-
-        function exportToExcel() {
-            const table = document.getElementById('historyTable');
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.table_to_sheet(table);
-            XLSX.utils.book_append_sheet(wb, ws, 'Historial');
-            XLSX.writeFile(wb, 'historial_coordenadas.xlsx');
+            addMarker(latInput, lonInput, notes || 'Sitio desconocido');
         }
 
         function getCurrentLocation() {
@@ -411,11 +169,7 @@
                     document.getElementById('latitude').value = lat.toFixed(6);
                     document.getElementById('longitude').value = lon.toFixed(6);
 
-                    getSiteName(lat, lon).then(siteName => {
-                        const notes = document.getElementById('notes').value.trim();
-                        addMarker(lat, lon, siteName);
-                        addToHistory(lat, lon, decimalToDMS(lat, 'lat'), decimalToDMS(lon, 'lon'), siteName, notes);
-                    });
+                    addMarker(lat, lon, 'Ubicación Actual');
                 }, error => {
                     alert('Error al obtener ubicación actual: ' + error.message);
                 });
