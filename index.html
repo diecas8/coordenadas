@@ -1,16 +1,161 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Convertidor de Coordenadas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <!-- Plugin leaflet-googlemutant -->
-    <script src="https://unpkg.com/leaflet.gridlayer.googlemutant@latest/dist/Leaflet.GoogleMutant.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* Estilos anteriores... */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin: 20px;
+            gap: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 30%;
+            box-sizing: border-box;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th, td {
+            padding: 8px;
+        }
+
+        #map {
+            width: 65%;
+            height: 400px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #777;
+        }
+
+        .history-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .delete-btn {
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: darkred;
+        }
+
+        .gps-btn {
+            background: orange;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .gps-btn:hover {
+            background: darkorange;
+        }
+
+        .export-btn {
+            background: green;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .export-btn:hover {
+            background: darkgreen;
+        }
+
+        .editable {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px;
+            text-align: center;
+            cursor: text;
+        }
+
+        .editable:hover {
+            background-color: #f9f9f9;
+        }
+
+        .highlight-row {
+            background-color: #ffff99;
+        }
     </style>
 </head>
 <body>
@@ -67,24 +212,14 @@
         const savedHistory = JSON.parse(localStorage.getItem('history')) || [];
 
         function initializeMap() {
-            // Asegúrate de que el contenedor del mapa tenga un tamaño definido
-            const mapContainer = document.getElementById('map');
-            if (!mapContainer) {
-                console.error('El contenedor del mapa no existe.');
-                return;
-            }
-
-            // Inicializar el mapa
             map = L.map('map').setView([0, 0], 2);
 
-            // Añadir la capa de Google Maps
-            L.gridLayer.googleMutant({
-                type: 'roadmap', // Tipo de mapa (roadmap, satellite, hybrid, terrain)
+            L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
                 maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
                 attribution: '© Google Maps'
             }).addTo(map);
 
-            // Manejar clics en el mapa
             map.on('click', async function (e) {
                 const { lat, lng } = e.latlng;
                 document.getElementById('latitude').value = lat.toFixed(6);
@@ -95,7 +230,6 @@
                 addToHistory(lat, lng, decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName, 'Capturado en Mapa');
             });
 
-            // Restaurar el historial
             restoreHistory();
         }
 
@@ -110,17 +244,13 @@
             }
         }
 
-        function isValidCoordinate(lat, lon) {
-            return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
-        }
-
         function convertCoordinates() {
             const latInput = parseFloat(document.getElementById('latitude').value);
             const lonInput = parseFloat(document.getElementById('longitude').value);
             const notes = document.getElementById('notes').value.trim();
 
-            if (!isValidCoordinate(latInput, lonInput)) {
-                alert('Por favor, ingrese coordenadas válidas (Latitud: -90 a 90, Longitud: -180 a 180).');
+            if (isNaN(latInput) || isNaN(lonInput)) {
+                alert('Por favor, ingrese coordenadas válidas.');
                 return;
             }
 
@@ -149,23 +279,11 @@
             const marker = L.marker([lat, lon]).addTo(map);
             marker.bindPopup(`Sitio: ${siteName}<br>Latitud: ${lat.toFixed(6)}<br>Longitud: ${lon.toFixed(6)}`);
             markers.push(marker);
-            fitMapToMarkers();
-        }
-
-        function fitMapToMarkers() {
-            const group = new L.featureGroup(markers);
-            map.fitBounds(group.getBounds());
         }
 
         function addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes) {
             const tableBody = document.querySelector('#historyTable tbody');
             historyCount++;
-
-            // Validar que lat y lon sean números
-            if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) {
-                console.error('Coordenadas inválidas:', lat, lon);
-                return;
-            }
 
             const row = `<tr onclick="highlightMarker(${historyCount - 1})">
                 <td>${historyCount}</td>
@@ -188,43 +306,18 @@
         }
 
         function restoreHistory() {
-            savedHistory.forEach((entry, index) => {
-                // Validar que la entrada tenga los datos correctos
-                if (entry && typeof entry.lat === 'number' && typeof entry.lon === 'number') {
-                    addToHistory(entry.lat, entry.lon, entry.dmsLat, entry.dmsLon, entry.siteName, entry.notes);
-                    addMarker(entry.lat, entry.lon, entry.siteName);
-                } else {
-                    console.error('Entrada inválida en el historial:', entry);
-                }
+            savedHistory.forEach(({ lat, lon, dmsLat, dmsLon, siteName, notes }, index) => {
+                addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes);
+                addMarker(lat, lon, siteName);
             });
         }
 
         function deleteEntry(index) {
-            if (confirm('¿Estás seguro de eliminar esta entrada?')) {
-                // Eliminar el marcador del mapa
-                markers[index].remove();
-                markers.splice(index, 1);
-
-                // Eliminar la fila de la tabla
-                const tableBody = document.querySelector('#historyTable tbody');
-                const rows = tableBody.querySelectorAll('tr');
-                rows[index].remove();
-
-                // Eliminar la entrada del historial guardado
-                savedHistory.splice(index, 1);
-                localStorage.setItem('history', JSON.stringify(savedHistory));
-
-                // Actualizar los números de las filas
-                updateRowNumbers();
-            }
-        }
-
-        function updateRowNumbers() {
-            const tableBody = document.querySelector('#historyTable tbody');
-            const rows = tableBody.querySelectorAll('tr');
-            rows.forEach((row, index) => {
-                row.querySelector('td:first-child').innerText = index + 1;
-            });
+            markers[index].remove();
+            markers.splice(index, 1);
+            savedHistory.splice(index, 1);
+            localStorage.setItem('history', JSON.stringify(savedHistory));
+            location.reload();
         }
 
         function highlightMarker(index) {
