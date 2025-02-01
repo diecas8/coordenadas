@@ -8,6 +8,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <!-- Plugin leaflet-googlemutant -->
     <script src="https://unpkg.com/leaflet.gridlayer.googlemutant@latest/dist/Leaflet.GoogleMutant.js"></script>
+    <!-- Cargar la API de Google Maps manualmente -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=TU_CLAVE_DE_API_DE_GOOGLE_MAPS"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -122,8 +124,7 @@
             L.gridLayer.googleMutant({
                 type: 'roadmap', // Tipo de mapa (roadmap, satellite, hybrid, terrain)
                 maxZoom: 20,
-                attribution: '© Google Maps',
-                apiKey: 'TU_CLAVE_DE_API_DE_GOOGLE_MAPS' // Reemplaza con tu clave de API de Google Maps
+                attribution: '© Google Maps'
             }).addTo(map);
 
             // Manejar clics en el mapa
