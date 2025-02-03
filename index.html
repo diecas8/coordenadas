@@ -271,7 +271,7 @@
 
         // Función para cargar y visualizar GeoJSON en el mapa
         function loadGeoJSON(geojsonData) {
-            L.geoJSON(geojsonData, {
+            const geoJSONLayer = L.geoJSON(geojsonData, {
                 pointToLayer: function (feature, latlng) {
                     return L.circleMarker(latlng, {
                         radius: 5,
@@ -295,6 +295,9 @@
                     }
                 }
             }).addTo(map);
+
+            // Ajustar la vista del mapa a los datos cargados
+            map.fitBounds(geoJSONLayer.getBounds());
         }
 
         async function getSiteName(lat, lon) {
