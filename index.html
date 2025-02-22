@@ -3,56 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor Cartográfico Offline</title>
+    <title>Gestor Cartográfico Completo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
             font-family: Arial, sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            background: #f0f0f5;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 25px;
         }
 
         .container {
             display: flex;
-            flex-grow: 1;
             gap: 20px;
-            margin-top: 20px;
+            height: 80vh;
         }
 
-        .control-panel {
+        .panel-control {
+            width: 320px;
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 300px;
-            overflow-y: auto;
         }
 
         #map {
-            flex-grow: 1;
+            flex: 1;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .boton {
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
             background: #3498db;
             color: white;
             border: none;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
             cursor: pointer;
-            width: 100%;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .historial {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         #attributeForm {
@@ -67,208 +82,189 @@
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             z-index: 1000;
         }
-
-        .footer {
-            text-align: center;
-            padding: 15px;
-            color: #666;
-        }
     </style>
 </head>
 <body>
-    <h1>🗺️ Mapa Offline con GPS</h1>
+    <h1>🗺️ Gestor Cartográfico Avanzado</h1>
     
     <div class="container">
-        <div class="control-panel">
-            <button class="boton" onclick="iniciarRutaGPS()">📍 Iniciar Ruta GPS</button>
-            <button class="boton" onclick="detenerRutaGPS()">⏹️ Detener Ruta</button>
-            <button class="boton" onclick="exportarDatos()">📤 Exportar Datos</button>
+        <div class="panel-control">
+            <div class="input-group">
+                <input type="text" id="latitude" placeholder="Latitud">
+                <input type="text" id="longitude" placeholder="Longitud">
+                <button onclick="capturarCoordenadas()">➕ Agregar Punto</button>
+                <button onclick="iniciarGPS()">📍 Usar GPS</button>
+                <button onclick="iniciarRuta()">🛣️ Iniciar Ruta</button>
+            </div>
             
-            <h3 style="margin: 15px 0 10px;">Herramientas</h3>
-            <button class="boton" onclick="activarDibujo('polygon')">🔵 Polígono</button>
-            <button class="boton" onclick="activarDibujo('polyline')">📏 Línea</button>
-            <button class="boton" onclick="activarDibujo('marker')">📍 Punto</button>
-            
-            <div id="attributeForm">
-                <h3>📝 Atributos</h3>
-                <input type="text" id="nombre" placeholder="Nombre" required><br>
-                <input type="text" id="tipo" placeholder="Tipo"><br>
-                <textarea id="descripcion" placeholder="Descripción"></textarea><br>
-                <button class="boton" onclick="guardarAtributos()">💾 Guardar</button>
+            <div class="herramientas">
+                <button onclick="activarDibujo('polygon')">🔵 Polígono</button>
+                <button onclick="activarDibujo('polyline')">📏 Línea</button>
+                <button onclick="activarDibujo('marker')">📍 Punto</button>
+            </div>
+
+            <div class="historial">
+                <h3>Historial</h3>
+                <div id="historyTable"></div>
+                <button onclick="exportarGeoJSON()">📤 GeoJSON</button>
+                <button onclick="exportarExcel()">📊 Excel</button>
+                <button onclick="limpiarHistorial()">🧹 Limpiar</button>
             </div>
         </div>
         <div id="map"></div>
     </div>
 
-    <div class="footer">
-        <p>Desarrollado por Diego Castaño | Funciona offline</p>
+    <div id="attributeForm">
+        <h3>📝 Registro de Atributos</h3>
+        <input type="text" id="nombreSitio" placeholder="Nombre del Sitio" required>
+        <input type="text" id="propietario" placeholder="Propietario/Responsable">
+        <textarea id="observaciones" placeholder="Observaciones"></textarea>
+        <button onclick="guardarAtributos()">💾 Guardar</button>
     </div>
 
-    <!-- Scripts principales -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    
-    <!-- Scripts para offline -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.offline/3.2.0/leaflet.offline.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
-        // Variables globales
         let map, drawnItems, currentLayer;
-        let rutaGPS = null;
+        let rutaActiva = null;
         let watchID = null;
-        const capaBase = L.tileLayer.offline('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            subdomains: 'abc'
-        });
+        const historial = JSON.parse(localStorage.getItem('historial')) || [];
 
-        // Inicialización del mapa
+        // Inicialización del Mapa
         function inicializarMapa() {
-            map = L.map('map', {
-                center: [4.7110, -74.0721],
-                zoom: 13,
-                layers: [capaBase]
-            });
+            map = L.map('map').setView([4.7110, -74.0721], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
 
-            // Capa para dibujar elementos
-            drawnItems = new L.FeatureGroup();
-            map.addLayer(drawnItems);
-
-            // Control de dibujo
+            // Configuración de herramientas de dibujo
+            drawnItems = new L.FeatureGroup().addTo(map);
             new L.Control.Draw({
                 draw: {
-                    polygon: true,
-                    polyline: true,
+                    polygon: { shapeOptions: { color: '#e74c3c' } },
+                    polyline: { shapeOptions: { color: '#2ecc71' } },
+                    marker: { icon: L.icon({ iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png' }) },
                     circle: false,
-                    marker: true,
                     rectangle: false
                 },
-                edit: {
-                    featureGroup: drawnItems
-                }
+                edit: { featureGroup: drawnItems }
             }).addTo(map);
 
             // Eventos de dibujo
             map.on(L.Draw.Event.CREATED, function(e) {
                 currentLayer = e.layer;
-                document.getElementById('attributeForm').style.display = 'block';
-                currentLayer.addTo(drawnItems);
+                mostrarFormularioAtributos();
+                drawnItems.addLayer(currentLayer);
             });
 
-            // Cargar datos guardados
-            cargarDatosGuardados();
+            cargarHistorial();
         }
 
-        // Función para registrar ruta GPS
-        function iniciarRutaGPS() {
+        // Funcionalidad GPS
+        function iniciarGPS() {
             if (!navigator.geolocation) {
-                alert("GPS no soportado en este navegador");
+                alert("Tu navegador no soporta geolocalización");
                 return;
             }
 
-            rutaGPS = L.polyline([], {color: 'red'}).addTo(map);
+            navigator.geolocation.getCurrentPosition(posicion => {
+                const lat = posicion.coords.latitude;
+                const lng = posicion.coords.longitude;
+                document.getElementById('latitude').value = lat.toFixed(6);
+                document.getElementById('longitude').value = lng.toFixed(6);
+                map.setView([lat, lng], 16);
+            }, error => {
+                alert("Error obteniendo ubicación: " + error.message);
+            });
+        }
+
+        // Registro de Ruta GPS
+        function iniciarRuta() {
+            if (!navigator.geolocation) return;
             
-            watchID = navigator.geolocation.watchPosition(
-                posicion => {
-                    const latlng = [posicion.coords.latitude, posicion.coords.longitude];
-                    
-                    if(rutaGPS) {
-                        rutaGPS.addLatLng(latlng);
-                        map.panTo(latlng);
-                    }
-                },
-                error => {
-                    alert(`Error GPS: ${error.message}`);
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 10000,
-                    timeout: 5000
-                }
-            );
+            rutaActiva = L.polyline([], { color: '#3498db' }).addTo(map);
+            watchID = navigator.geolocation.watchPosition(posicion => {
+                const latlng = [posicion.coords.latitude, posicion.coords.longitude];
+                rutaActiva.addLatLng(latlng);
+                map.panTo(latlng);
+            });
         }
 
-        function detenerRutaGPS() {
-            if(watchID) navigator.geolocation.clearWatch(watchID);
-            if(rutaGPS) {
-                guardarElemento({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: rutaGPS.getLatLngs().map(ll => [ll.lng, ll.lat])
-                    },
-                    properties: {
-                        nombre: 'Ruta GPS',
-                        tipo: 'Ruta',
-                        descripcion: 'Registro de ruta por GPS'
-                    }
-                });
-                rutaGPS = null;
-            }
+        // Gestión de Atributos
+        function mostrarFormularioAtributos() {
+            document.getElementById('attributeForm').style.display = 'block';
         }
 
-        // Gestión de atributos
         function guardarAtributos() {
-            guardarElemento({
+            const feature = {
                 type: 'Feature',
                 geometry: currentLayer.toGeoJSON().geometry,
                 properties: {
-                    nombre: document.getElementById('nombre').value,
-                    tipo: document.getElementById('tipo').value,
-                    descripcion: document.getElementById('descripcion').value
+                    nombre: document.getElementById('nombreSitio').value,
+                    propietario: document.getElementById('propietario').value,
+                    observaciones: document.getElementById('observaciones').value,
+                    fecha: new Date().toISOString()
                 }
-            });
-            document.getElementById('attributeForm').style.display = 'none';
-        }
-
-        function guardarElemento(feature) {
-            localStorage.setItem(`elemento_${Date.now()}`, JSON.stringify(feature));
-            currentLayer.bindPopup(`<b>${feature.properties.nombre}</b><br>${feature.properties.descripcion}`);
-        }
-
-        function cargarDatosGuardados() {
-            Object.keys(localStorage).forEach(key => {
-                if(key.startsWith('elemento_')) {
-                    const feature = JSON.parse(localStorage.getItem(key));
-                    L.geoJSON(feature, {
-                        pointToLayer: (geoJsonPoint, latlng) => L.marker(latlng),
-                        style: {color: '#3498db'}
-                    }).bindPopup(`<b>${feature.properties.nombre}</b><br>${feature.properties.descripcion}`)
-                      .addTo(drawnItems);
-                }
-            });
-        }
-
-        // Exportación de datos
-        function exportarDatos() {
-            const features = [];
-            Object.keys(localStorage).forEach(key => {
-                if(key.startsWith('elemento_')) {
-                    features.push(JSON.parse(localStorage.getItem(key)));
-                }
-            });
+            };
             
+            historial.push(feature);
+            localStorage.setItem('historial', JSON.stringify(historial));
+            document.getElementById('attributeForm').style.display = 'none';
+            actualizarHistorial();
+        }
+
+        // Exportación de Datos
+        function exportarGeoJSON() {
             const geoJSON = {
                 type: 'FeatureCollection',
-                features: features
+                features: historial
             };
-
-            const blob = new Blob([JSON.stringify(geoJSON)], {type: 'application/json'});
+            
+            const blob = new Blob([JSON.stringify(geoJSON)], { type: 'application/json' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'mapa-offline.geojson';
+            link.download = 'mapa-datos.geojson';
             link.click();
         }
 
-        // Iniciar aplicación
-        window.onload = inicializarMapa;
+        function exportarExcel() {
+            const datos = historial.map(item => ({
+                Nombre: item.properties.nombre,
+                Propietario: item.properties.propietario,
+                Observaciones: item.properties.observaciones,
+                Latitud: item.geometry.coordinates[1],
+                Longitud: item.geometry.coordinates[0],
+                Tipo: item.geometry.type
+            }));
 
-        // Registrar Service Worker para offline
-        if('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(registration => console.log('ServiceWorker registrado'))
-                .catch(error => console.log('Error ServiceWorker:', error));
+            const ws = XLSX.utils.json_to_sheet(datos);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Datos");
+            XLSX.writeFile(wb, "datos-mapa.xlsx");
         }
+
+        // Funciones Auxiliares
+        function cargarHistorial() {
+            historial.forEach(item => {
+                const layer = L.geoJSON(item, {
+                    pointToLayer: (feature, latlng) => L.marker(latlng),
+                    style: { color: '#e74c3c' }
+                }).bindPopup(`<b>${item.properties.nombre}</b><br>${item.properties.observaciones}`);
+                drawnItems.addLayer(layer);
+            });
+        }
+
+        function limpiarHistorial() {
+            localStorage.removeItem('historial');
+            location.reload();
+        }
+
+        // Inicialización
+        window.onload = inicializarMapa;
     </script>
 </body>
 </html>
