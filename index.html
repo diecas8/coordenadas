@@ -214,7 +214,7 @@
             historial.push(feature);
             localStorage.setItem('historial', JSON.stringify(historial));
             document.getElementById('attributeForm').style.display = 'none';
-            actualizarHistorial();
+            actualizarHistorial(); 
         }
 
         // Exportación de Datos
@@ -262,6 +262,14 @@
             localStorage.removeItem('historial');
             location.reload();
         }
+        
+        function actualizarHistorial() {
+            // Aquí puedes agregar la lógica para actualizar el historial visible en la página
+            // Por ejemplo, puedes agregar una nueva fila a una tabla con los datos del nuevo elemento
+            // O puedes usar una librería como React o Vue para manejar la actualización de la interfaz
+            console.log('Historial actualizado:', historial);
+          }
+          
 
         // Inicialización
         window.onload = inicializarMapa;
