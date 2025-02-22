@@ -3,34 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor Cartográfico</title>
+    <title>Gestor Cartográfico Completo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
     <style>
-        /* Estilos esenciales corregidos */
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
+            font-family: Arial, sans-serif;
         }
 
         body {
-            font-family: Arial;
             padding: 20px;
             box-sizing: border-box;
-        }
-
-        #map {
-            height: 70vh;
-            width: 100%;
-            border-radius: 10px;
-            margin-top: 20px;
+            background: #f0f0f5;
+            transition: background 0.3s;
         }
 
         .container {
             display: flex;
             gap: 20px;
-            height: 100%;
+            height: calc(100% - 80px);
         }
 
         .card {
@@ -38,89 +32,203 @@
             padding: 20px;
             border-radius: 10px;
             width: 300px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #map {
+            flex: 1;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            color: #666;
+        }
+
+        #attributeForm {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .tema-oscuro {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .tema-oscuro .card {
+            background: #34495e;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px 0;
+            width: 100%;
         }
     </style>
 </head>
 <body>
-    <h1>🗺️ Gestor Cartográfico</h1>
+    <h1>🗺️ Gestor Cartográfico Profesional</h1>
     
     <div class="container">
         <div class="card">
             <button onclick="cambiarTema()">🌞/🌙 Tema</button>
+            <button onclick="exportToExcel()">📊 Exportar Excel</button>
+            <button onclick="exportToGeoJSON()">📤 Exportar GeoJSON</button>
             <input type="file" id="geojson-file" accept=".geojson" onchange="handleGeoJSONUpload(event)" style="margin: 10px 0;">
-            <button onclick="exportToGeoJSON()" style="margin-bottom: 10px;">📤 Exportar GeoJSON</button>
         </div>
         <div id="map"></div>
     </div>
 
-    <!-- Scripts MÍNIMOS necesarios -->
+    <div id="attributeForm">
+        <h3>Atributos</h3>
+        <input type="text" id="sitio" placeholder="Nombre del sitio"><br>
+        <input type="text" id="propietario" placeholder="Propietario"><br>
+        <textarea id="observaciones" placeholder="Observaciones"></textarea><br>
+        <button onclick="guardarAtributos()">💾 Guardar</button>
+    </div>
+
+    <div class="footer">
+        <p>Elaborado por Diego Castaño</p>
+    </div>
+
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-googlemutant/0.15.3/Leaflet.GoogleMutant.min.js"></script>
 
     <script>
-        // Versión simplificada y funcional
         let map, drawnItems = new L.FeatureGroup();
+        let capaTemporal = null;
+        const elementosGuardados = [];
 
         function initializeMap() {
-            // Configuración básica del mapa
-            map = L.map('map').setView([4.7110, -74.0721], 6);
+            // Configurar Google Maps como base
+            map = L.map('map').setView([4.7110, -74.0721], 13);
             
-            // Capa base de OpenStreetMap
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap'
+            // Capa de Google Maps
+            L.gridLayer.googleMutant({
+                type: 'roadmap',
+                maxZoom: 20
             }).addTo(map);
 
             // Control de dibujo
             const drawControl = new L.Control.Draw({
                 draw: {
-                    polygon: true,
-                    polyline: true,
+                    polygon: { shapeOptions: { color: '#e74c3c' } },
+                    polyline: { shapeOptions: { color: '#3498db' } },
                     circle: false,
                     marker: false,
                     rectangle: false
                 },
-                edit: {
-                    featureGroup: drawnItems
-                }
-            });
-            map.addControl(drawControl);
+                edit: { featureGroup: drawnItems }
+            }).addTo(map);
 
             // Eventos
-            map.on(L.Draw.Event.CREATED, function(e) {
-                drawnItems.addLayer(e.layer);
+            map.on(L.Draw.Event.CREATED, e => {
+                capaTemporal = e.layer;
+                document.getElementById('attributeForm').style.display = 'block';
             });
 
             map.addLayer(drawnItems);
         }
 
-        // Función de carga de GeoJSON
+        function guardarAtributos() {
+            const elemento = {
+                tipo: capaTemporal.toGeoJSON().geometry.type,
+                coordenadas: capaTemporal.toGeoJSON().geometry.coordinates,
+                propiedades: {
+                    sitio: document.getElementById('sitio').value,
+                    propietario: document.getElementById('propietario').value,
+                    observaciones: document.getElementById('observaciones').value
+                }
+            };
+
+            elementosGuardados.push(elemento);
+            capaTemporal.bindPopup(`
+                <b>${elemento.propiedades.sitio}</b><br>
+                ${elemento.propiedades.observaciones}
+            `).addTo(drawnItems);
+            
+            document.getElementById('attributeForm').style.display = 'none';
+            localStorage.setItem('elementos', JSON.stringify(elementosGuardados));
+        }
+
         function handleGeoJSONUpload(event) {
             const file = event.target.files[0];
             const reader = new FileReader();
             
-            reader.onload = function(e) {
+            reader.onload = e => {
                 const geoJSON = JSON.parse(e.target.result);
-                L.geoJSON(geoJSON).addTo(map);
+                L.geoJSON(geoJSON, {
+                    onEachFeature: (feature, layer) => {
+                        layer.bindPopup(`
+                            <b>${feature.properties.sitio}</b><br>
+                            ${feature.properties.observaciones}
+                        `);
+                        drawnItems.addLayer(layer);
+                    }
+                }).addTo(map);
             };
             reader.readAsText(file);
         }
 
-        // Función de exportación
         function exportToGeoJSON() {
-            const data = drawnItems.toGeoJSON();
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            const geoJSON = {
+                type: 'FeatureCollection',
+                features: elementosGuardados.map(item => ({
+                    type: 'Feature',
+                    geometry: {
+                        type: item.tipo,
+                        coordinates: item.coordenadas
+                    },
+                    properties: item.propiedades
+                }))
+            };
+
+            const blob = new Blob([JSON.stringify(geoJSON)], { type: 'application/json' });
             const link = document.createElement('a');
-            link.href = dataStr;
-            link.download = "mapa.geojson";
+            link.href = URL.createObjectURL(blob);
+            link.download = 'mapa-exportado.geojson';
             link.click();
         }
 
-        // Inicialización segura
-        window.onload = function() {
-            initializeMap();
-        };
+        function exportToExcel() {
+            const datos = elementosGuardados.map(item => ({
+                'Sitio': item.propiedades.sitio,
+                'Propietario': item.propiedades.propietario,
+                'Observaciones': item.propiedades.observaciones,
+                'Coordenadas': JSON.stringify(item.coordenadas)
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(datos);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Datos");
+            XLSX.writeFile(wb, "datos-mapa.xlsx");
+        }
+
+        function cambiarTema() {
+            document.body.classList.toggle('tema-oscuro');
+        }
+
+        // Inicialización
+        window.onload = initializeMap;
     </script>
 </body>
 </html>
