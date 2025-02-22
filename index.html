@@ -6,28 +6,40 @@
     <title>Gestor Cartográfico</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
     <style>
-        /* Estilos existentes */
-        body { font-family: Arial; margin: 20px; background: #f0f0f5; transition: 0.3s; }
-        .container { display: flex; gap: 20px; margin-bottom: 20px; }
-        .card { background: white; padding: 20px; border-radius: 10px; width: 350px; }
-        #map { flex: 1; height: 600px; border-radius: 10px; }
-        /* Nuevos estilos */
-        .leaflet-draw-toolbar a { background-image: url(https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/images/spritesheet.png); }
-        #attributeForm { 
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        /* Estilos esenciales corregidos */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #map {
+            height: 70vh;
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .card {
             background: white;
             padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            z-index: 1000;
+            border-radius: 10px;
+            width: 300px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .tema-oscuro #attributeForm { background: #333; color: white; }
     </style>
 </head>
 <body>
@@ -36,148 +48,79 @@
     <div class="container">
         <div class="card">
             <button onclick="cambiarTema()">🌞/🌙 Tema</button>
-            <label>Latitud: <input type="text" id="latitude" placeholder="Ej: 4.7110"></label>
-            <label>Longitud: <input type="text" id="longitude" placeholder="Ej: -74.0721"></label>
-            <label>Notas: <input type="text" id="notes" placeholder="Notas opcionales"></label>
-            <button onclick="getCurrentLocation()">📍 Ubicación Actual</button>
-            <input type="file" id="geojson-file" accept=".geojson" onchange="handleGeoJSONUpload(event)" style="margin-top:10px;">
+            <input type="file" id="geojson-file" accept=".geojson" onchange="handleGeoJSONUpload(event)" style="margin: 10px 0;">
+            <button onclick="exportToGeoJSON()" style="margin-bottom: 10px;">📤 Exportar GeoJSON</button>
         </div>
         <div id="map"></div>
     </div>
 
-    <div class="history-container">
-        <table id="historyTable"><!-- Contenido dinámico --></table>
-        <button onclick="exportToExcel()">📤 Exportar Excel</button>
-        <button onclick="clearHistory()">🧹 Limpiar</button>
-    </div>
-
-    <div id="attributeForm">
-        <h3>Atributos de la Forma</h3>
-        <label>Sitio: <input type="text" id="featureSite"></label><br>
-        <label>Propietario: <input type="text" id="featureOwner"></label><br>
-        <label>Observaciones: <textarea id="featureNotes"></textarea></label><br>
-        <button onclick="saveFeatureAttributes()">💾 Guardar</button>
-    </div>
-
-    <div class="footer">
-        <button onclick="exportToGeoJSON()">📤 Exportar GeoJSON</button>
-        <p>Elaborado por Diego Castaño</p>
-    </div>
-
-    <!-- Scripts -->
+    <!-- Scripts MÍNIMOS necesarios -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
-        // Variables globales
-        let map, marcadoresCluster, drawnItems = new L.FeatureGroup();
-        let markers = [], tempLayer = null;
-        const savedHistory = JSON.parse(localStorage.getItem('history')) || [];
-        const savedFeatures = JSON.parse(localStorage.getItem('geoFeatures')) || [];
+        // Versión simplificada y funcional
+        let map, drawnItems = new L.FeatureGroup();
 
         function initializeMap() {
-            map = L.map('map').setView([4.7110, -74.0721], 5);
+            // Configuración básica del mapa
+            map = L.map('map').setView([4.7110, -74.0721], 6);
             
-            // Capas base
-            const capas = {
-                "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
-                "Satélite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
-            };
-            capas.OpenStreetMap.addTo(map);
-            L.control.layers(capas).addTo(map);
+            // Capa base de OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
 
             // Control de dibujo
             const drawControl = new L.Control.Draw({
                 draw: {
-                    polygon: { shapeOptions: { color: '#3388ff' } },
-                    polyline: { shapeOptions: { color: '#3388ff' } },
+                    polygon: true,
+                    polyline: true,
                     circle: false,
                     marker: false,
                     rectangle: false
                 },
-                edit: { featureGroup: drawnItems }
+                edit: {
+                    featureGroup: drawnItems
+                }
             });
             map.addControl(drawControl);
 
             // Eventos
-            map.on(L.Draw.Event.CREATED, e => {
-                tempLayer = e.layer;
-                document.getElementById('attributeForm').style.display = 'block';
+            map.on(L.Draw.Event.CREATED, function(e) {
+                drawnItems.addLayer(e.layer);
             });
 
             map.addLayer(drawnItems);
-            loadSavedFeatures();
-            restoreHistory();
         }
 
-        function saveFeatureAttributes() {
-            const feature = {
-                type: 'Feature',
-                geometry: tempLayer.toGeoJSON().geometry,
-                properties: {
-                    sitio: document.getElementById('featureSite').value,
-                    propietario: document.getElementById('featureOwner').value,
-                    observaciones: document.getElementById('featureNotes').value
-                }
-            };
+        // Función de carga de GeoJSON
+        function handleGeoJSONUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
             
-            drawnItems.addLayer(tempLayer);
-            savedFeatures.push(feature);
-            localStorage.setItem('geoFeatures', JSON.stringify(savedFeatures));
-            document.getElementById('attributeForm').style.display = 'none';
-            tempLayer = null;
-        }
-
-        function loadSavedFeatures() {
-            savedFeatures.forEach(feature => {
-                const layer = L.geoJSON(feature, {
-                    style: { color: '#3388ff' },
-                    onEachFeature: (f, l) => l.bindPopup(`
-                        <b>${f.properties.sitio}</b><br>
-                        Propietario: ${f.properties.propietario}<br>
-                        Observaciones: ${f.properties.observaciones}
-                    `)
-                });
-                drawnItems.addLayer(layer);
-            });
-        }
-
-        function exportToGeoJSON() {
-            const geoJSONData = {
-                type: 'FeatureCollection',
-                features: [
-                    ...savedFeatures,
-                    ...savedHistory.map(entry => ({
-                        type: 'Feature',
-                        geometry: { type: 'Point', coordinates: [entry.lon, entry.lat] },
-                        properties: { 
-                            sitio: entry.siteName, 
-                            notas: entry.notes 
-                        }
-                    }))
-                ]
+            reader.onload = function(e) {
+                const geoJSON = JSON.parse(e.target.result);
+                L.geoJSON(geoJSON).addTo(map);
             };
+            reader.readAsText(file);
+        }
 
-            const dataStr = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(geoJSONData))}`;
+        // Función de exportación
+        function exportToGeoJSON() {
+            const data = drawnItems.toGeoJSON();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
             const link = document.createElement('a');
             link.href = dataStr;
-            link.download = 'mapa.geojson';
+            link.download = "mapa.geojson";
             link.click();
         }
 
-        // Funciones existentes (sin modificaciones)
-        function restoreHistory() { /* ... */ }
-        function addMarker(lat, lon) { /* ... */ }
-        function addToHistory(lat, lon, notes) { /* ... */ }
-        function getCurrentLocation() { /* ... */ }
-        function deleteEntry(index) { /* ... */ }
-        function clearHistory() { /* ... */ }
-        function exportToExcel() { /* ... */ }
-        function cambiarTema() { /* ... */ }
-
-        window.onload = initializeMap;
+        // Inicialización segura
+        window.onload = function() {
+            initializeMap();
+        };
     </script>
 </body>
 </html>
