@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,16 +10,16 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f9;
+            margin: 20px;
+            padding: 0;
+            background-color: #f0f0f5;
             color: #333;
-            transition: background 0.3s;
         }
 
         h1 {
             text-align: center;
-            margin: 20px 0;
+            color: #2c3e50;
+            margin-bottom: 30px;
         }
 
         .container {
@@ -32,41 +32,43 @@
             background: white;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            width: 30%;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            width: 350px;
         }
 
         #map {
-            flex-grow: 1;
-            height: 500px;
+            flex: 1;
+            height: 600px;
             border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
         }
 
         input, button {
             width: 100%;
             padding: 10px;
-            margin: 5px 0;
+            margin: 8px 0;
             border: 1px solid #ddd;
             border-radius: 5px;
             box-sizing: border-box;
         }
 
         button {
-            background: #007bff;
+            background: #3498db;
             color: white;
+            border: none;
             cursor: pointer;
+            transition: background 0.3s;
         }
 
         button:hover {
-            opacity: 0.9;
+            background: #2980b9;
         }
 
         .history-container {
             background: white;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
         }
 
         table {
@@ -76,18 +78,9 @@
         }
 
         th, td {
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ddd;
             text-align: center;
-        }
-
-        .tema-oscuro {
-            background-color: #1a1a1a;
-            color: white;
-        }
-
-        .tema-oscuro .card, .tema-oscuro .history-container {
-            background: #2a2a2a;
         }
 
         @media (max-width: 768px) {
@@ -98,18 +91,17 @@
                 width: 100% !important;
             }
             #map {
-                height: 300px;
+                height: 400px;
             }
         }
     </style>
 </head>
 <body>
-    <h1>Convertidor de Coordenadas</h1>
+    <h1>🌍 Convertidor de Coordenadas</h1>
     
     <div class="container">
         <div class="card">
             <button onclick="cambiarTema()">🌞/🌙 Tema</button>
-            <input type="text" id="buscador" placeholder="Buscar lugar...">
             
             <label>Latitud:</label>
             <input type="text" id="latitude" placeholder="Ej: 4.7110">
@@ -120,11 +112,11 @@
             <label>Notas:</label>
             <input type="text" id="notes" placeholder="Notas opcionales">
             
-            <button onclick="convertCoordinates()">Convertir</button>
+            <button onclick="convertCoordinates()">🧭 Convertir</button>
             <button onclick="getCurrentLocation()">📍 Ubicación Actual</button>
             
             <input type="file" id="geojson-file" accept=".geojson" 
-                   style="margin-top: 10px;" onchange="handleGeoJSONUpload(event)">
+                   style="margin-top: 15px;" onchange="handleGeoJSONUpload(event)">
         </div>
         
         <div id="map"></div>
@@ -141,9 +133,10 @@
             <tbody></tbody>
         </table>
         <button onclick="exportToExcel()">📤 Exportar Excel</button>
-        <button onclick="clearHistory()">🧹 Limpiar</button>
+        <button onclick="clearHistory()">🧹 Limpiar Historial</button>
     </div>
 
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -159,21 +152,21 @@
             
             // Capas base
             const capas = {
-                "Google": L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-                    maxZoom: 20,
-                    subdomains: ['mt0','mt1','mt2','mt3'],
-                    attribution: '© Google Maps'
+                "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
                 }),
                 "Satélite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
             };
-            capas.Google.addTo(map);
+            
+            capas.OpenStreetMap.addTo(map);
             L.control.layers(capas).addTo(map);
             
             // Cluster de marcadores
             marcadoresCluster = L.markerClusterGroup();
             map.addLayer(marcadoresCluster);
             
-            // Eventos
+            // Evento click en el mapa
             map.on('click', async e => {
                 document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
                 document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
@@ -185,11 +178,22 @@
 
         // Restaurar historial
         function restoreHistory() {
-            savedHistory.forEach(entry => {
-                addToHistory(entry.lat, entry.lon, 
-                           entry.dmsLat, entry.dmsLon, 
-                           entry.siteName, entry.notes, 
-                           false);
+            const tbody = document.querySelector('#historyTable tbody');
+            tbody.innerHTML = '';
+            
+            savedHistory.forEach((entry, index) => {
+                const row = `<tr>
+                    <td>${index + 1}</td>
+                    <td>${entry.lat.toFixed(6)}</td>
+                    <td>${entry.lon.toFixed(6)}</td>
+                    <td>${entry.dmsLat}</td>
+                    <td>${entry.dmsLon}</td>
+                    <td contenteditable>${entry.siteName}</td>
+                    <td contenteditable>${entry.notes}</td>
+                    <td><button onclick="deleteEntry(${index})">🗑️</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
+                addMarker(entry.lat, entry.lon, entry.siteName);
             });
         }
 
@@ -199,15 +203,19 @@
             const lon = parseFloat(document.getElementById('longitude').value);
             const notes = document.getElementById('notes').value;
             
-            if(isNaN(lat) return alert('Latitud inválida');
-            if(isNaN(lon)) return alert('Longitud inválida');
+            if (isNaN(lat)) return alert('Latitud inválida');
+            if (isNaN(lon)) return alert('Longitud inválida');
             
-            const siteName = await getSiteName(lat, lon);
-            const dmsLat = decimalToDMS(lat, 'lat');
-            const dmsLon = decimalToDMS(lon, 'lon');
-            
-            addMarker(lat, lon, siteName);
-            addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes);
+            try {
+                const siteName = await getSiteName(lat, lon);
+                const dmsLat = decimalToDMS(lat, 'lat');
+                const dmsLon = decimalToDMS(lon, 'lon');
+                
+                addMarker(lat, lon, siteName);
+                addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
         }
 
         // Añadir marcador
@@ -218,9 +226,10 @@
         }
 
         // Añadir al historial
-        function addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes, save = true) {
+        function addToHistory(lat, lon, dmsLat, dmsLon, siteName, notes) {
+            const tbody = document.querySelector('#historyTable tbody');
             const row = `<tr>
-                <td>${historyTable.rows.length}</td>
+                <td>${tbody.children.length + 1}</td>
                 <td>${lat.toFixed(6)}</td>
                 <td>${lon.toFixed(6)}</td>
                 <td>${dmsLat}</td>
@@ -230,41 +239,52 @@
                 <td><button onclick="deleteEntry(${markers.length - 1})">🗑️</button></td>
             </tr>`;
             
-            document.querySelector('#historyTable tbody').innerHTML += row;
-            
-            if(save) {
-                savedHistory.push({ lat, lon, dmsLat, dmsLon, siteName, notes });
-                localStorage.setItem('history', JSON.stringify(savedHistory));
-            }
+            tbody.innerHTML += row;
+            savedHistory.push({ lat, lon, dmsLat, dmsLon, siteName, notes });
+            localStorage.setItem('history', JSON.stringify(savedHistory));
         }
 
-        // Funciones auxiliares
+        // Obtener nombre del lugar
         async function getSiteName(lat, lon) {
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                const data = await response.json();
-                return data.display_name || 'Ubicación desconocida';
-            } catch {
-                return 'Ubicación desconocida';
-            }
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            const data = await response.json();
+            return data.display_name || 'Ubicación desconocida';
         }
 
+        // Conversión a DMS
         function decimalToDMS(decimal, type) {
             const abs = Math.abs(decimal);
             const deg = Math.floor(abs);
             const min = Math.floor((abs - deg) * 60);
             const sec = ((abs - deg - min/60) * 3600).toFixed(2);
-            const dir = type === 'lat' ? (decimal > 0 ? 'N' : 'S') : (decimal > 0 ? 'E' : 'W');
+            const dir = type === 'lat' ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
             return `${deg}°${min}'${sec}"${dir}`;
         }
 
-        // Funciones de UI
-        function cambiarTema() {
-            document.body.classList.toggle('tema-oscuro');
+        // Geolocalización
+        function getCurrentLocation() {
+            if (!navigator.geolocation) {
+                alert("Tu navegador no soporta geolocalización");
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    document.getElementById('latitude').value = lat.toFixed(6);
+                    document.getElementById('longitude').value = lon.toFixed(6);
+                    convertCoordinates();
+                },
+                error => {
+                    alert("Error: " + error.message);
+                }
+            );
         }
 
+        // Funciones adicionales
         function deleteEntry(index) {
-            if(!confirm('¿Eliminar entrada?')) return;
+            if (!confirm('¿Eliminar esta entrada?')) return;
             markers[index].remove();
             markers.splice(index, 1);
             savedHistory.splice(index, 1);
@@ -273,18 +293,25 @@
         }
 
         function clearHistory() {
-            if(!confirm('¿Borrar todo el historial?')) return;
+            if (!confirm('¿Borrar todo el historial?')) return;
             localStorage.removeItem('history');
             location.reload();
         }
 
         function exportToExcel() {
-            const wb = XLSX.utils.table_to_book(historyTable);
-            XLSX.writeFile(wb, 'Historial.xlsx');
+            const wb = XLSX.utils.table_to_book(document.getElementById('historyTable'));
+            XLSX.writeFile(wb, 'Historial_Coordenadas.xlsx');
         }
 
-        // Inicialización
-        window.onload = initializeMap;
+        function cambiarTema() {
+            document.body.classList.toggle('tema-oscuro');
+            document.querySelectorAll('.card, .history-container').forEach(el => {
+                el.classList.toggle('tema-oscuro');
+            });
+        }
+
+        // Iniciar
+        initializeMap();
     </script>
 </body>
 </html>
