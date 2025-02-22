@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor Cartográfico Profesional</title>
+    <title>Gestor Cartográfico Offline</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
     <style>
         * {
             margin: 0;
@@ -21,7 +20,6 @@
             flex-direction: column;
             padding: 20px;
             background: #f0f0f5;
-            transition: background 0.3s;
         }
 
         .container {
@@ -37,7 +35,7 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             width: 300px;
-            transition: background 0.3s;
+            overflow-y: auto;
         }
 
         #map {
@@ -57,10 +55,6 @@
             width: 100%;
         }
 
-        .boton:hover {
-            background: #2980b9;
-        }
-
         #attributeForm {
             display: none;
             position: fixed;
@@ -74,15 +68,6 @@
             z-index: 1000;
         }
 
-        .tema-oscuro {
-            background: #2c3e50;
-            color: white;
-        }
-
-        .tema-oscuro .control-panel {
-            background: #34495e;
-        }
-
         .footer {
             text-align: center;
             padding: 15px;
@@ -91,201 +76,199 @@
     </style>
 </head>
 <body>
-    <h1>🗺️ Gestor Cartográfico</h1>
+    <h1>🗺️ Mapa Offline con GPS</h1>
     
     <div class="container">
         <div class="control-panel">
-            <button class="boton" onclick="cambiarTema()">🌞/🌙 Tema</button>
-            <button class="boton" onclick="exportToExcel()">📊 Exportar Excel</button>
-            <button class="boton" onclick="exportToGeoJSON()">📤 Exportar GeoJSON</button>
-            <input type="file" class="boton" id="geojson-file" accept=".geojson" onchange="handleGeoJSONUpload(event)">
+            <button class="boton" onclick="iniciarRutaGPS()">📍 Iniciar Ruta GPS</button>
+            <button class="boton" onclick="detenerRutaGPS()">⏹️ Detener Ruta</button>
+            <button class="boton" onclick="exportarDatos()">📤 Exportar Datos</button>
             
             <h3 style="margin: 15px 0 10px;">Herramientas</h3>
             <button class="boton" onclick="activarDibujo('polygon')">🔵 Polígono</button>
             <button class="boton" onclick="activarDibujo('polyline')">📏 Línea</button>
             <button class="boton" onclick="activarDibujo('marker')">📍 Punto</button>
             
-            <h3 style="margin: 15px 0 10px;">Coordenadas</h3>
-            <input type="text" id="latitude" placeholder="Latitud" class="boton">
-            <input type="text" id="longitude" placeholder="Longitud" class="boton">
-            <button class="boton" onclick="agregarMarcadorManual()">➕ Agregar</button>
+            <div id="attributeForm">
+                <h3>📝 Atributos</h3>
+                <input type="text" id="nombre" placeholder="Nombre" required><br>
+                <input type="text" id="tipo" placeholder="Tipo"><br>
+                <textarea id="descripcion" placeholder="Descripción"></textarea><br>
+                <button class="boton" onclick="guardarAtributos()">💾 Guardar</button>
+            </div>
         </div>
         <div id="map"></div>
     </div>
 
-    <div id="attributeForm">
-        <h3>📝 Atributos</h3>
-        <input type="text" id="sitio" placeholder="Sitio" required><br>
-        <input type="text" id="propietario" placeholder="Propietario"><br>
-        <textarea id="observaciones" placeholder="Observaciones"></textarea><br>
-        <button class="boton" onclick="guardarAtributos()">💾 Guardar</button>
-    </div>
-
     <div class="footer">
-        <p>Desarrollado por Diego Castaño | Versión 3.0</p>
+        <p>Desarrollado por Diego Castaño | Funciona offline</p>
     </div>
 
+    <!-- Scripts principales -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-googlemutant/0.15.3/Leaflet.GoogleMutant.min.js"></script>
+    
+    <!-- Scripts para offline -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.offline/3.2.0/leaflet.offline.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
     <script>
-        let map, drawnItems, currentDrawTool;
-        let marcadoresCluster = L.markerClusterGroup();
-        const elementos = JSON.parse(localStorage.getItem('elementos')) || [];
+        // Variables globales
+        let map, drawnItems, currentLayer;
+        let rutaGPS = null;
+        let watchID = null;
+        const capaBase = L.tileLayer.offline('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            subdomains: 'abc'
+        });
 
-        // 1. Inicialización del mapa
-        function initializeMap() {
-            map = L.map('map').setView([4.7110, -74.0721], 6);
-            
-            // Capas base
-            const googleLayer = L.gridLayer.googleMutant({
-                type: 'roadmap',
-                maxZoom: 20
+        // Inicialización del mapa
+        function inicializarMapa() {
+            map = L.map('map', {
+                center: [4.7110, -74.0721],
+                zoom: 13,
+                layers: [capaBase]
             });
-            
-            const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-            
-            L.control.layers({
-                'Google Maps': googleLayer,
-                'ESRI Satélite': esriSatellite
-            }).addTo(map);
-            
-            googleLayer.addTo(map);
 
-            // Configuración de dibujo
-            drawnItems = new L.FeatureGroup().addTo(map);
-            map.addLayer(marcadoresCluster);
-            cargarElementosGuardados();
+            // Capa para dibujar elementos
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
 
-            // Eventos del mapa
-            map.on('click', function(e) {
-                document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
-                document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
-            });
-        }
-
-        // 2. Funciones de dibujo
-        function activarDibujo(tipo) {
-            if (currentDrawTool) map.removeControl(currentDrawTool);
-            
-            currentDrawTool = new L.Control.Draw({
+            // Control de dibujo
+            new L.Control.Draw({
                 draw: {
-                    [tipo]: { shapeOptions: { color: '#e74c3c' } },
+                    polygon: true,
+                    polyline: true,
                     circle: false,
-                    marker: false,
+                    marker: true,
                     rectangle: false
                 },
-                edit: { featureGroup: drawnItems }
+                edit: {
+                    featureGroup: drawnItems
+                }
             }).addTo(map);
 
+            // Eventos de dibujo
             map.on(L.Draw.Event.CREATED, function(e) {
-                const layer = e.layer;
+                currentLayer = e.layer;
                 document.getElementById('attributeForm').style.display = 'block';
-                layer.on('click', function() {
-                    mostrarAtributos(layer);
-                });
-                drawnItems.addLayer(layer);
+                currentLayer.addTo(drawnItems);
             });
+
+            // Cargar datos guardados
+            cargarDatosGuardados();
         }
 
-        // 3. Gestión de atributos
-        function guardarAtributos() {
-            const elemento = {
-                type: 'Feature',
-                geometry: drawnItems.getLayers().pop().toGeoJSON().geometry,
-                properties: {
-                    sitio: document.getElementById('sitio').value,
-                    propietario: document.getElementById('propietario').value,
-                    observaciones: document.getElementById('observaciones').value
-                }
-            };
-            
-            elementos.push(elemento);
-            localStorage.setItem('elementos', JSON.stringify(elementos));
-            document.getElementById('attributeForm').style.display = 'none';
-        }
+        // Función para registrar ruta GPS
+        function iniciarRutaGPS() {
+            if (!navigator.geolocation) {
+                alert("GPS no soportado en este navegador");
+                return;
+            }
 
-        // 4. Funciones de importación/exportación
-        function exportToGeoJSON() {
-            const geoJSON = {
-                type: 'FeatureCollection',
-                features: elementos
-            };
+            rutaGPS = L.polyline([], {color: 'red'}).addTo(map);
             
-            const blob = new Blob([JSON.stringify(geoJSON)], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'mapa-exportado.geojson';
-            link.click();
-        }
-
-        function exportToExcel() {
-            const datos = elementos.map(item => ({
-                Sitio: item.properties.sitio,
-                Propietario: item.properties.propietario,
-                Observaciones: item.properties.observaciones,
-                Tipo: item.geometry.type,
-                Coordenadas: JSON.stringify(item.geometry.coordinates)
-            }));
-            
-            const ws = XLSX.utils.json_to_sheet(datos);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Datos");
-            XLSX.writeFile(wb, "datos-mapa.xlsx");
-        }
-
-        function handleGeoJSONUpload(event) {
-            const file = event.target.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const geoJSON = JSON.parse(e.target.result);
-                L.geoJSON(geoJSON, {
-                    onEachFeature: (feature, layer) => {
-                        elementos.push(feature);
-                        drawnItems.addLayer(layer);
+            watchID = navigator.geolocation.watchPosition(
+                posicion => {
+                    const latlng = [posicion.coords.latitude, posicion.coords.longitude];
+                    
+                    if(rutaGPS) {
+                        rutaGPS.addLatLng(latlng);
+                        map.panTo(latlng);
                     }
-                }).addTo(map);
-            };
-            reader.readAsText(file);
+                },
+                error => {
+                    alert(`Error GPS: ${error.message}`);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 10000,
+                    timeout: 5000
+                }
+            );
         }
 
-        // 5. Funciones adicionales
-        function cambiarTema() {
-            document.body.classList.toggle('tema-oscuro');
-            document.querySelector('.control-panel').classList.toggle('tema-oscuro');
-        }
-
-        function cargarElementosGuardados() {
-            elementos.forEach(elemento => {
-                const layer = L.geoJSON(elemento, {
-                    pointToLayer: (feature, latlng) => L.marker(latlng),
-                    style: { color: '#e74c3c' }
-                }).bindPopup(`<b>${elemento.properties.sitio}</b><br>${elemento.properties.observaciones}`);
-                
-                drawnItems.addLayer(layer);
-            });
-        }
-
-        function agregarMarcadorManual() {
-            const lat = document.getElementById('latitude').value;
-            const lon = document.getElementById('longitude').value;
-            
-            if(lat && lon) {
-                const marker = L.marker([lat, lon]).addTo(marcadoresCluster);
-                elementos.push({
+        function detenerRutaGPS() {
+            if(watchID) navigator.geolocation.clearWatch(watchID);
+            if(rutaGPS) {
+                guardarElemento({
                     type: 'Feature',
-                    geometry: { type: 'Point', coordinates: [lon, lat] },
-                    properties: { sitio: 'Marcador manual', observaciones: 'Agregado manualmente' }
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: rutaGPS.getLatLngs().map(ll => [ll.lng, ll.lat])
+                    },
+                    properties: {
+                        nombre: 'Ruta GPS',
+                        tipo: 'Ruta',
+                        descripcion: 'Registro de ruta por GPS'
+                    }
                 });
+                rutaGPS = null;
             }
         }
 
-        // Inicialización final
-        window.onload = initializeMap;
+        // Gestión de atributos
+        function guardarAtributos() {
+            guardarElemento({
+                type: 'Feature',
+                geometry: currentLayer.toGeoJSON().geometry,
+                properties: {
+                    nombre: document.getElementById('nombre').value,
+                    tipo: document.getElementById('tipo').value,
+                    descripcion: document.getElementById('descripcion').value
+                }
+            });
+            document.getElementById('attributeForm').style.display = 'none';
+        }
+
+        function guardarElemento(feature) {
+            localStorage.setItem(`elemento_${Date.now()}`, JSON.stringify(feature));
+            currentLayer.bindPopup(`<b>${feature.properties.nombre}</b><br>${feature.properties.descripcion}`);
+        }
+
+        function cargarDatosGuardados() {
+            Object.keys(localStorage).forEach(key => {
+                if(key.startsWith('elemento_')) {
+                    const feature = JSON.parse(localStorage.getItem(key));
+                    L.geoJSON(feature, {
+                        pointToLayer: (geoJsonPoint, latlng) => L.marker(latlng),
+                        style: {color: '#3498db'}
+                    }).bindPopup(`<b>${feature.properties.nombre}</b><br>${feature.properties.descripcion}`)
+                      .addTo(drawnItems);
+                }
+            });
+        }
+
+        // Exportación de datos
+        function exportarDatos() {
+            const features = [];
+            Object.keys(localStorage).forEach(key => {
+                if(key.startsWith('elemento_')) {
+                    features.push(JSON.parse(localStorage.getItem(key)));
+                }
+            });
+            
+            const geoJSON = {
+                type: 'FeatureCollection',
+                features: features
+            };
+
+            const blob = new Blob([JSON.stringify(geoJSON)], {type: 'application/json'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'mapa-offline.geojson';
+            link.click();
+        }
+
+        // Iniciar aplicación
+        window.onload = inicializarMapa;
+
+        // Registrar Service Worker para offline
+        if('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(registration => console.log('ServiceWorker registrado'))
+                .catch(error => console.log('Error ServiceWorker:', error));
+        }
     </script>
 </body>
 </html>
