@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <!-- Nuevos recursos para clusters y temas -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <link id="theme-style" rel="stylesheet" href="theme-light.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -87,6 +92,10 @@
             height: 400px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                        <!-- Nuevos botones -->
+            <button class="theme-btn" onclick="cambiarTema()">🌞/🌙</button>
+            <input type="text" id="buscador" placeholder="Buscar lugar...">
+            <button class="search-btn" onclick="buscarLugar()">🔍</button>
         }
 
         .footer {
@@ -234,26 +243,26 @@
         let historyCount = 0;
         const savedHistory = JSON.parse(localStorage.getItem('history')) || [];
 
-        function initializeMap() {
+             function initializeMap() {
             map = L.map('map').setView([0, 0], 2);
 
-            L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-                maxZoom: 20,
-                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                attribution: '© Google Maps'
-            }).addTo(map);
+            // ========== NUEVAS CAPAS ==========
+            const capasBase = {
+                "Google": L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                    maxZoom: 20,
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    attribution: '© Google Maps'
+                }),
+                "Satélite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
+            };
+            
+            capasBase.Google.addTo(map);
+            L.control.layers(capasBase).addTo(map);
+            // ========== FIN NUEVAS CAPAS ==========
 
-            map.on('click', async function (e) {
-                const { lat, lng } = e.latlng;
-                document.getElementById('latitude').value = lat.toFixed(6);
-                document.getElementById('longitude').value = lng.toFixed(6);
-
-                const siteName = await getSiteName(lat, lng);
-                addMarker(lat, lng, siteName);
-                addToHistory(lat, lng, decimalToDMS(lat, 'lat'), decimalToDMS(lng, 'lon'), siteName, 'Capturado en Mapa');
-            });
-
-            restoreHistory();
+            // Clusters
+            const marcadoresCluster = L.markerClusterGroup();
+            map.addLayer(marcadoresCluster);
         }
 
         // Función para manejar la carga de archivos GeoJSON
