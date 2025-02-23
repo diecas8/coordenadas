@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIG Profesional - Gestión Ambiental</title>
+    <title>SIG Ambiental Profesional</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
     <style>
@@ -28,6 +28,9 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .attribute-form {
@@ -42,32 +45,56 @@
             z-index: 1000;
             display: none;
         }
+
+        button {
+            padding: 10px 15px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
     <div class="control-panel">
-        <button onclick="toggleGPS()">📍 Seguimiento GPS</button>
-        <button onclick="exportSelected()">📤 Exportar Selección</button>
-        <button onclick="document.getElementById('geojsonInput').click()">📥 Importar GeoJSON</button>
-        <input type="file" id="geojsonInput" hidden accept=".geojson">
+        <button onclick="toggleDrawing('polygon')">Polígono</button>
+        <button onclick="toggleDrawing('polyline')">Línea</button>
+        <button onclick="toggleDrawing('marker')">Punto</button>
+        <button onclick="toggleGPS()">GPS</button>
+        <button onclick="exportData()">Exportar</button>
+        <input type="file" id="importFile" accept=".geojson" hidden>
+        <button onclick="document.getElementById('importFile').click()">Importar</button>
     </div>
+    
     <div id="map"></div>
     
     <div class="attribute-form">
-        <h3>Atributos del Elemento</h3>
+        <h3>Registro Ambiental</h3>
         <input type="text" id="proyecto" placeholder="Proyecto" required>
         <input type="text" id="productor" placeholder="Productor">
         <input type="text" id="vereda" placeholder="Vereda">
         <input type="text" id="municipio" placeholder="Municipio">
-        <input type="number" id="anio" placeholder="Año" min="2000" max="2100">
+        <input type="number" id="anio" placeholder="Año" min="2000">
         <select id="ecosistema">
-            <option value="">Seleccione ecosistema</option>
+            <option value="">Ecosistema</option>
             <option value="Bosque">Bosque</option>
             <option value="Páramo">Páramo</option>
             <option value="Humedal">Humedal</option>
         </select>
         <textarea id="observaciones" placeholder="Observaciones"></textarea>
-        <button onclick="saveAttributes()">💾 Guardar</button>
+        <button onclick="saveFeature()">Guardar</button>
+    </div>
+
+    <div class="footer">
+        <p>Desarrollado por Diego Castaño | © OpenStreetMap contributors | © Google Maps | © ESRI</p>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -76,45 +103,72 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
-        let map, drawnItems, currentLayer, gpsTracker;
-        const capas = new L.FeatureGroup();
-        const storedData = JSON.parse(localStorage.getItem('sigData')) || { features: [] };
+        let map, drawnItems, currentLayer, drawControl, gpsMarker;
+        let storedData = JSON.parse(localStorage.getItem('ambientalData')) || { features: [] };
 
-        // Inicialización del Mapa
+        // Inicializar mapa
         function initMap() {
             map = L.map('map').setView([4.7110, -74.0721], 13);
 
             // Capas base
-            const baseLayers = {
-                "Google Satélite": L.gridLayer.googleMutant({ type: 'hybrid' }),
-                "ESRI Satélite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
-            };
+            const googleSat = L.gridLayer.googleMutant({
+                type: 'hybrid',
+                maxZoom: 20
+            });
 
-            baseLayers["Google Satélite"].addTo(map);
-            L.control.layers(baseLayers).addTo(map);
+            const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
 
-            // Configuración de dibujo y edición
-            drawnItems = new L.FeatureGroup().addTo(map);
-            const drawControl = new L.Control.Draw({
-                draw: { polygon: true, polyline: true, marker: true },
-                edit: { featureGroup: drawnItems }
+            // Control de capas
+            L.control.layers({
+                'Google Satélite': googleSat,
+                'ESRI Imagery': esriSat
             }).addTo(map);
 
-            map.on(L.Draw.Event.CREATED, handleDraw);
-            map.on(L.Draw.Event.EDITED, saveAllData);
+            googleSat.addTo(map);
+
+            // Configurar herramientas de dibujo
+            drawnItems = new L.FeatureGroup().addTo(map);
             
+            drawControl = new L.Control.Draw({
+                draw: {
+                    polygon: {
+                        shapeOptions: { color: '#e74c3c' },
+                        showArea: true
+                    },
+                    polyline: {
+                        shapeOptions: { color: '#3498db' }
+                    },
+                    marker: {
+                        icon: L.icon({
+                            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+                            iconSize: [25, 41]
+                        })
+                    },
+                    circle: false,
+                    rectangle: false
+                },
+                edit: {
+                    featureGroup: drawnItems
+                }
+            }).addTo(map);
+
+            // Eventos de dibujo
+            map.on(L.Draw.Event.CREATED, handleDrawCreate);
+            map.on(L.Draw.Event.EDITED, saveAllData);
+
+            // Cargar datos almacenados
             loadStoredData();
         }
 
-        // Manejo de dibujos
-        function handleDraw(e) {
+        // Manejar creación de elementos
+        function handleDrawCreate(e) {
             currentLayer = e.layer;
             document.querySelector('.attribute-form').style.display = 'block';
             currentLayer.addTo(drawnItems);
         }
 
         // Guardar atributos
-        function saveAttributes() {
+        function saveFeature() {
             const feature = {
                 type: 'Feature',
                 geometry: currentLayer.toGeoJSON().geometry,
@@ -131,60 +185,52 @@
             };
             
             storedData.features.push(feature);
-            localStorage.setItem('sigData', JSON.stringify(storedData));
+            localStorage.setItem('ambientalData', JSON.stringify(storedData));
             document.querySelector('.attribute-form').style.display = 'none';
+            currentLayer.bindPopup(createPopupContent(feature.properties)).openPopup();
         }
 
-        // Seguimiento GPS
+        // GPS Tracking
         function toggleGPS() {
-            if (!gpsTracker) {
-                gpsTracker = L.marker([0,0], { icon: L.divIcon({ className: 'gps-marker' }) }).addTo(map);
+            if (!gpsMarker) {
+                gpsMarker = L.marker([0,0], {
+                    icon: L.divIcon({
+                        className: 'gps-marker',
+                        html: '<div style="background: #2ecc71; width: 20px; height: 20px; border-radius: 50%;"></div>'
+                    })
+                }).addTo(map);
+                
                 navigator.geolocation.watchPosition(pos => {
                     const latlng = [pos.coords.latitude, pos.coords.longitude];
-                    gpsTracker.setLatLng(latlng);
+                    gpsMarker.setLatLng(latlng);
                     map.panTo(latlng);
+                }, null, {
+                    enableHighAccuracy: true,
+                    maximumAge: 10000,
+                    timeout: 5000
                 });
             } else {
-                map.removeLayer(gpsTracker);
-                gpsTracker = null;
+                map.removeLayer(gpsMarker);
+                gpsMarker = null;
             }
         }
 
-        // Exportación de datos
-        function exportSelected() {
-            const selectedData = {
+        // Exportar datos
+        function exportData() {
+            const geoJSON = {
                 type: 'FeatureCollection',
-                features: drawnItems.getLayers().map(layer => layer.toGeoJSON())
+                features: storedData.features
             };
 
-            const blob = new Blob([JSON.stringify(selectedData)], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'seleccion.geojson';
-            link.click();
-        }
+            // Exportar GeoJSON
+            const geojsonBlob = new Blob([JSON.stringify(geoJSON)], { type: 'application/json' });
+            const geojsonLink = document.createElement('a');
+            geojsonLink.href = URL.createObjectURL(geojsonBlob);
+            geojsonLink.download = 'datos_ambientales.geojson';
+            geojsonLink.click();
 
-        // Importación de GeoJSON
-        document.getElementById('geojsonInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const geoJSON = JSON.parse(e.target.result);
-                L.geoJSON(geoJSON, {
-                    onEachFeature: (feature, layer) => {
-                        storedData.features.push(feature);
-                        layer.addTo(drawnItems);
-                    }
-                });
-                localStorage.setItem('sigData', JSON.stringify(storedData));
-            };
-            reader.readAsText(file);
-        });
-
-        // Exportar a Excel
-        function exportToExcel() {
-            const worksheet = XLSX.utils.json_to_sheet(storedData.features.map(f => ({
+            // Exportar Excel
+            const ws = XLSX.utils.json_to_sheet(storedData.features.map(f => ({
                 Proyecto: f.properties.proyecto,
                 Productor: f.properties.productor,
                 Vereda: f.properties.vereda,
@@ -195,25 +241,26 @@
                 Coordenadas: JSON.stringify(f.geometry.coordinates)
             })));
             
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
-            XLSX.writeFile(workbook, "datos_ambientales.xlsx");
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Datos");
+            XLSX.writeFile(wb, "datos_ambientales.xlsx");
         }
 
         // Cargar datos almacenados
         function loadStoredData() {
-            storedData.features.forEach(feature => {
-                L.geoJSON(feature, {
+            storedData.features.forEach(f => {
+                const layer = L.geoJSON(f, {
                     pointToLayer: (geoJsonPoint, latlng) => L.marker(latlng),
-                    style: { color: '#3388ff' }
-                }).bindPopup(createPopupContent(feature.properties)).addTo(drawnItems);
+                    style: { color: '#e74c3c' }
+                }).bindPopup(createPopupContent(f.properties));
+                drawnItems.addLayer(layer);
             });
         }
 
         function createPopupContent(properties) {
             return `<b>${properties.proyecto}</b><hr>
-                    <div>Productor: ${properties.productor}</div>
                     <div>Ecosistema: ${properties.ecosistema}</div>
+                    <div>Ubicación: ${properties.vereda}, ${properties.municipio}</div>
                     <div>Observaciones: ${properties.observaciones}</div>`;
         }
 
