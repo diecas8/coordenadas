@@ -3,276 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor Cartográfico Completo</title>
+    <title>SIG Profesional - Gestión Ambiental</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            padding: 0;
-            background-color: #f4f4f9;
-        }
-
-        h1 {
-            text-align: center;
-            color: #2c3e50;
-            margin-bottom: 25px;
-        }
-
-        .container {
-            display: flex;
-            gap: 20px;
-            height: 80vh;
-        }
-
-        .panel-control {
-            width: 320px;
-            background: white;
+            margin: 0;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         #map {
-            flex: 1;
+            flex-grow: 1;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .input-group {
+        .control-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             margin-bottom: 15px;
         }
 
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        button {
-            background: #3498db;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        button:hover {
-            background: #2980b9;
-        }
-
-        .historial {
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        #attributeForm {
-            display: none;
+        .attribute-form {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             background: white;
             padding: 20px;
-            border-radius: 5px;
+            border-radius: 8px;
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             z-index: 1000;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>🗺️ Gestor Cartográfico Avanzado</h1>
-    
-    <div class="container">
-        <div class="panel-control">
-            <div class="input-group">
-                <input type="text" id="latitude" placeholder="Latitud">
-                <input type="text" id="longitude" placeholder="Longitud">
-                <button onclick="capturarCoordenadas()">➕ Agregar Punto</button>
-                <button onclick="iniciarGPS()">📍 Usar GPS</button>
-                <button onclick="iniciarRuta()">🛣️ Iniciar Ruta</button>
-            </div>
-            
-            <div class="herramientas">
-                <button onclick="activarDibujo('polygon')">🔵 Polígono</button>
-                <button onclick="activarDibujo('polyline')">📏 Línea</button>
-                <button onclick="activarDibujo('marker')">📍 Punto</button>
-            </div>
-
-            <div class="historial">
-                <h3>Historial</h3>
-                <div id="historyTable"></div>
-                <button onclick="exportarGeoJSON()">📤 GeoJSON</button>
-                <button onclick="exportarExcel()">📊 Excel</button>
-                <button onclick="limpiarHistorial()">🧹 Limpiar</button>
-            </div>
-        </div>
-        <div id="map"></div>
+    <div class="control-panel">
+        <button onclick="toggleGPS()">📍 Seguimiento GPS</button>
+        <button onclick="exportSelected()">📤 Exportar Selección</button>
+        <button onclick="document.getElementById('geojsonInput').click()">📥 Importar GeoJSON</button>
+        <input type="file" id="geojsonInput" hidden accept=".geojson">
     </div>
-
-    <div id="attributeForm">
-        <h3>📝 Registro de Atributos</h3>
-        <input type="text" id="nombreSitio" placeholder="Nombre del Sitio" required>
-        <input type="text" id="propietario" placeholder="Propietario/Responsable">
+    <div id="map"></div>
+    
+    <div class="attribute-form">
+        <h3>Atributos del Elemento</h3>
+        <input type="text" id="proyecto" placeholder="Proyecto" required>
+        <input type="text" id="productor" placeholder="Productor">
+        <input type="text" id="vereda" placeholder="Vereda">
+        <input type="text" id="municipio" placeholder="Municipio">
+        <input type="number" id="anio" placeholder="Año" min="2000" max="2100">
+        <select id="ecosistema">
+            <option value="">Seleccione ecosistema</option>
+            <option value="Bosque">Bosque</option>
+            <option value="Páramo">Páramo</option>
+            <option value="Humedal">Humedal</option>
+        </select>
         <textarea id="observaciones" placeholder="Observaciones"></textarea>
-        <button onclick="guardarAtributos()">💾 Guardar</button>
+        <button onclick="saveAttributes()">💾 Guardar</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-googlemutant/0.15.3/Leaflet.GoogleMutant.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
-        let map, drawnItems, currentLayer;
-        let rutaActiva = null;
-        let watchID = null;
-        const historial = JSON.parse(localStorage.getItem('historial')) || [];
+        let map, drawnItems, currentLayer, gpsTracker;
+        const capas = new L.FeatureGroup();
+        const storedData = JSON.parse(localStorage.getItem('sigData')) || { features: [] };
 
         // Inicialización del Mapa
-        function inicializarMapa() {
+        function initMap() {
             map = L.map('map').setView([4.7110, -74.0721], 13);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
 
-            // Configuración de herramientas de dibujo
+            // Capas base
+            const baseLayers = {
+                "Google Satélite": L.gridLayer.googleMutant({ type: 'hybrid' }),
+                "ESRI Satélite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
+            };
+
+            baseLayers["Google Satélite"].addTo(map);
+            L.control.layers(baseLayers).addTo(map);
+
+            // Configuración de dibujo y edición
             drawnItems = new L.FeatureGroup().addTo(map);
-            new L.Control.Draw({
-                draw: {
-                    polygon: { shapeOptions: { color: '#e74c3c' } },
-                    polyline: { shapeOptions: { color: '#2ecc71' } },
-                    marker: { icon: L.icon({ iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png' }) },
-                    circle: false,
-                    rectangle: false
-                },
+            const drawControl = new L.Control.Draw({
+                draw: { polygon: true, polyline: true, marker: true },
                 edit: { featureGroup: drawnItems }
             }).addTo(map);
 
-            // Eventos de dibujo
-            map.on(L.Draw.Event.CREATED, function(e) {
-                currentLayer = e.layer;
-                mostrarFormularioAtributos();
-                drawnItems.addLayer(currentLayer);
-            });
-
-            cargarHistorial();
-        }
-
-        // Funcionalidad GPS
-        function iniciarGPS() {
-            if (!navigator.geolocation) {
-                alert("Tu navegador no soporta geolocalización");
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(posicion => {
-                const lat = posicion.coords.latitude;
-                const lng = posicion.coords.longitude;
-                document.getElementById('latitude').value = lat.toFixed(6);
-                document.getElementById('longitude').value = lng.toFixed(6);
-                map.setView([lat, lng], 16);
-            }, error => {
-                alert("Error obteniendo ubicación: " + error.message);
-            });
-        }
-
-        // Registro de Ruta GPS
-        function iniciarRuta() {
-            if (!navigator.geolocation) return;
+            map.on(L.Draw.Event.CREATED, handleDraw);
+            map.on(L.Draw.Event.EDITED, saveAllData);
             
-            rutaActiva = L.polyline([], { color: '#3498db' }).addTo(map);
-            watchID = navigator.geolocation.watchPosition(posicion => {
-                const latlng = [posicion.coords.latitude, posicion.coords.longitude];
-                rutaActiva.addLatLng(latlng);
-                map.panTo(latlng);
-            });
+            loadStoredData();
         }
 
-        // Gestión de Atributos
-        function mostrarFormularioAtributos() {
-            document.getElementById('attributeForm').style.display = 'block';
+        // Manejo de dibujos
+        function handleDraw(e) {
+            currentLayer = e.layer;
+            document.querySelector('.attribute-form').style.display = 'block';
+            currentLayer.addTo(drawnItems);
         }
 
-        function guardarAtributos() {
+        // Guardar atributos
+        function saveAttributes() {
             const feature = {
                 type: 'Feature',
                 geometry: currentLayer.toGeoJSON().geometry,
                 properties: {
-                    nombre: document.getElementById('nombreSitio').value,
-                    propietario: document.getElementById('propietario').value,
+                    proyecto: document.getElementById('proyecto').value,
+                    productor: document.getElementById('productor').value,
+                    vereda: document.getElementById('vereda').value,
+                    municipio: document.getElementById('municipio').value,
+                    año: document.getElementById('anio').value,
+                    ecosistema: document.getElementById('ecosistema').value,
                     observaciones: document.getElementById('observaciones').value,
                     fecha: new Date().toISOString()
                 }
             };
             
-            historial.push(feature);
-            localStorage.setItem('historial', JSON.stringify(historial));
-            document.getElementById('attributeForm').style.display = 'none';
-            actualizarHistorial(); 
+            storedData.features.push(feature);
+            localStorage.setItem('sigData', JSON.stringify(storedData));
+            document.querySelector('.attribute-form').style.display = 'none';
         }
 
-        // Exportación de Datos
-        function exportarGeoJSON() {
-            const geoJSON = {
+        // Seguimiento GPS
+        function toggleGPS() {
+            if (!gpsTracker) {
+                gpsTracker = L.marker([0,0], { icon: L.divIcon({ className: 'gps-marker' }) }).addTo(map);
+                navigator.geolocation.watchPosition(pos => {
+                    const latlng = [pos.coords.latitude, pos.coords.longitude];
+                    gpsTracker.setLatLng(latlng);
+                    map.panTo(latlng);
+                });
+            } else {
+                map.removeLayer(gpsTracker);
+                gpsTracker = null;
+            }
+        }
+
+        // Exportación de datos
+        function exportSelected() {
+            const selectedData = {
                 type: 'FeatureCollection',
-                features: historial
+                features: drawnItems.getLayers().map(layer => layer.toGeoJSON())
             };
-            
-            const blob = new Blob([JSON.stringify(geoJSON)], { type: 'application/json' });
+
+            const blob = new Blob([JSON.stringify(selectedData)], { type: 'application/json' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'mapa-datos.geojson';
+            link.download = 'seleccion.geojson';
             link.click();
         }
 
-        function exportarExcel() {
-            const datos = historial.map(item => ({
-                Nombre: item.properties.nombre,
-                Propietario: item.properties.propietario,
-                Observaciones: item.properties.observaciones,
-                Latitud: item.geometry.coordinates[1],
-                Longitud: item.geometry.coordinates[0],
-                Tipo: item.geometry.type
-            }));
+        // Importación de GeoJSON
+        document.getElementById('geojsonInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const geoJSON = JSON.parse(e.target.result);
+                L.geoJSON(geoJSON, {
+                    onEachFeature: (feature, layer) => {
+                        storedData.features.push(feature);
+                        layer.addTo(drawnItems);
+                    }
+                });
+                localStorage.setItem('sigData', JSON.stringify(storedData));
+            };
+            reader.readAsText(file);
+        });
 
-            const ws = XLSX.utils.json_to_sheet(datos);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Datos");
-            XLSX.writeFile(wb, "datos-mapa.xlsx");
+        // Exportar a Excel
+        function exportToExcel() {
+            const worksheet = XLSX.utils.json_to_sheet(storedData.features.map(f => ({
+                Proyecto: f.properties.proyecto,
+                Productor: f.properties.productor,
+                Vereda: f.properties.vereda,
+                Municipio: f.properties.municipio,
+                Año: f.properties.año,
+                Ecosistema: f.properties.ecosistema,
+                Observaciones: f.properties.observaciones,
+                Coordenadas: JSON.stringify(f.geometry.coordinates)
+            })));
+            
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
+            XLSX.writeFile(workbook, "datos_ambientales.xlsx");
         }
 
-        // Funciones Auxiliares
-        function cargarHistorial() {
-            historial.forEach(item => {
-                const layer = L.geoJSON(item, {
-                    pointToLayer: (feature, latlng) => L.marker(latlng),
-                    style: { color: '#e74c3c' }
-                }).bindPopup(`<b>${item.properties.nombre}</b><br>${item.properties.observaciones}`);
-                drawnItems.addLayer(layer);
+        // Cargar datos almacenados
+        function loadStoredData() {
+            storedData.features.forEach(feature => {
+                L.geoJSON(feature, {
+                    pointToLayer: (geoJsonPoint, latlng) => L.marker(latlng),
+                    style: { color: '#3388ff' }
+                }).bindPopup(createPopupContent(feature.properties)).addTo(drawnItems);
             });
         }
 
-        function limpiarHistorial() {
-            localStorage.removeItem('historial');
-            location.reload();
+        function createPopupContent(properties) {
+            return `<b>${properties.proyecto}</b><hr>
+                    <div>Productor: ${properties.productor}</div>
+                    <div>Ecosistema: ${properties.ecosistema}</div>
+                    <div>Observaciones: ${properties.observaciones}</div>`;
         }
-        
-        function actualizarHistorial() {
-            // Aquí puedes agregar la lógica para actualizar el historial visible en la página
-            // Por ejemplo, puedes agregar una nueva fila a una tabla con los datos del nuevo elemento
-            // O puedes usar una librería como React o Vue para manejar la actualización de la interfaz
-            console.log('Historial actualizado:', historial);
-          }
-          
 
         // Inicialización
-        window.onload = inicializarMapa;
+        window.onload = initMap;
     </script>
 </body>
 </html>
