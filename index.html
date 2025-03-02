@@ -5,18 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geoportal de Fincas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.1.0/dist/leaflet.draw.css" />
     <style>
         #map { width: 100%; height: 80vh; }
-        .leaflet-control-container { z-index: 9999; }
-        #controls { padding: 10px; background: white; border-radius: 5px; }
-        .form-group { margin: 5px 0; }
-        #credits { position: fixed; bottom: 10px; right: 10px; font-size: 0.8em; }
+        #controls { padding: 10px; background: white; border-radius: 5px; position: fixed; top: 10px; left: 10px; z-index: 9999; }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="controls" style="position: fixed; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+    <div id="controls">
         <button onclick="toggleLayer('fincas')">Fincas</button>
         <button onclick="toggleLayer('cultivos')">Cultivos</button>
         <button onclick="toggleLayer('infraestructura')">Infraestructura</button>
@@ -25,38 +22,29 @@
         <button onclick="exportGeoJSON()">Exportar GeoJSON</button>
         <input type="file" id="fileInput" style="display: none;" accept=".geojson" onchange="importGeoJSON(this)">
     </div>
-    <div id="credits">Elaborado por Diego Castaño</div>
+    <div id="credits" style="position: fixed; bottom: 10px; right: 10px; font-size: 0.8em;">Elaborado por Diego Castaño</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.1.0/dist/leaflet.draw.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/xlsx.full.min.js"></script>
 
     <script>
         let map, drawControl;
         const layers = {
-            fincas: L.geoJSON(null, { style: { color: '#ff7800', radius: 8 } }),
+            fincas: L.geoJSON(null, { pointToLayer: (latlng, props) => L.circleMarker(latlng, { radius: 8, color: '#ff7800' }) }),
             cultivos: L.geoJSON(null, { style: { color: '#00ff00', fillOpacity: 0.5 } }),
             infraestructura: L.geoJSON(null, { style: { color: '#0000ff', weight: 3 } })
         };
 
-        // Inicialización del mapa
-        map = L.map('map').setView([5.4500, -75.1389], 10); // Coord Colombia
+        map = L.map('map').setView([5.4500, -75.1389], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: 'Map data © OpenStreetMap contributors'
         }).addTo(map);
 
-        // Agregar capas base
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Esri'
         }).addTo(map);
 
-        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: 'Google'
-        });
-
-        // Funciones generales
         function toggleLayer(layerName) {
             if (layers[layerName].getLayers().length > 0) {
                 layers[layerName].clearLayers();
@@ -64,7 +52,11 @@
             } else {
                 drawControl = new L.Control.Draw({
                     edit: { featureGroup: layers[layerName] },
-                    draw: { polygon: layerName === 'cultivos', marker: layerName === 'fincas', polyline: layerName === 'infraestructura' }
+                    draw: {
+                        polygon: layerName === 'cultivos',
+                        marker: layerName === 'fincas',
+                        polyline: layerName === 'infraestructura'
+                    }
                 }).addTo(map);
                 map.addLayer(layers[layerName]);
             }
@@ -78,7 +70,6 @@
             });
         }
 
-        // Persistencia con LocalStorage
         function saveToStorage(key, data) {
             localStorage.setItem(key, JSON.stringify(data));
         }
@@ -87,24 +78,14 @@
             return JSON.parse(localStorage.getItem(key)) || [];
         }
 
-        // Lógica específica para cada capa
-        // ... (Implementar validaciones, cálculos y manejo de atributos según especificaciones)
-
-        // Exportar a Excel
         function exportExcel() {
-            const data = {
-                Fincas: loadFromStorage('fincas'),
-                Cultivos: loadFromStorage('cultivos'),
-                Infraestructura: loadFromStorage('infraestructura')
-            };
-            
-            const ws = XLSX.utils.json_to_sheet(data.Fincas);
+            const data = loadFromStorage('fincas') || [];
+            const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Fincas');
             XLSX.writeFile(wb, 'fincas.xlsx');
         }
 
-        // Importar/Exportar GeoJSON
         function exportGeoJSON() {
             const geojson = layers.fincas.toGeoJSON();
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
@@ -115,15 +96,14 @@
             downloadLink.click();
         }
 
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
+        function importGeoJSON(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = JSON.parse(reader.result);
                 L.geoJSON(data).addTo(map);
             };
-            reader.readAsText(file);
-        });
+            reader.readAsText(file.files[0]);
+        }
     </script>
 </body>
 </html>
