@@ -1,250 +1,129 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <!-- Mantener los mismos estilos y enlaces -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geoportal de Fincas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <style>
+        #map { width: 100%; height: 80vh; }
+        .leaflet-control-container { z-index: 9999; }
+        #controls { padding: 10px; background: white; border-radius: 5px; }
+        .form-group { margin: 5px 0; }
+        #credits { position: fixed; bottom: 10px; right: 10px; font-size: 0.8em; }
+    </style>
 </head>
 <body>
-    <!-- Mantener misma estructura HTML -->
+    <div id="map"></div>
+    <div id="controls" style="position: fixed; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+        <button onclick="toggleLayer('fincas')">Fincas</button>
+        <button onclick="toggleLayer('cultivos')">Cultivos</button>
+        <button onclick="toggleLayer('infraestructura')">Infraestructura</button>
+        <button onclick="showGPS()">Mi Ubicación</button>
+        <button onclick="exportExcel()">Exportar a Excel</button>
+        <button onclick="exportGeoJSON()">Exportar GeoJSON</button>
+        <input type="file" id="fileInput" style="display: none;" accept=".geojson" onchange="importGeoJSON(this)">
+    </div>
+    <div id="credits">Elaborado por Diego Castaño</div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.5/dist/xlsx.full.min.js"></script>
 
     <script>
-        // Configuración inicial
-        const CONFIG = {
-            MAX_STORAGE: 5 * 1024 * 1024,
-            VALID_ECOSYSTEMS: ['Bosque', 'Páramo', 'Humedal'],
-            DEFAULT_CENTER: [4.7110, -74.0721],
-            DEFAULT_ZOOM: 13
+        let map, drawControl;
+        const layers = {
+            fincas: L.geoJSON(null, { style: { color: '#ff7800', radius: 8 } }),
+            cultivos: L.geoJSON(null, { style: { color: '#00ff00', fillOpacity: 0.5 } }),
+            infraestructura: L.geoJSON(null, { style: { color: '#0000ff', weight: 3 } })
         };
 
-        let map, drawnItems, currentLayer, drawControl, gpsWatchId;
-        let storedData = JSON.parse(localStorage.getItem('ambientalData')) || { features: [] };
+        // Inicialización del mapa
+        map = L.map('map').setView([5.4500, -75.1389], 10); // Coord Colombia
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data © OpenStreetMap contributors'
+        }).addTo(map);
 
-        // Funciones principales
-        function initMap() {
-            map = L.map('map').setView(CONFIG.DEFAULT_CENTER, CONFIG.DEFAULT_ZOOM);
+        // Agregar capas base
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri'
+        }).addTo(map);
 
-            // Capas base
-            const baseLayers = {
-                'Google Satélite': L.gridLayer.googleMutant({ type: 'hybrid' }),
-                'ESRI Imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
-            };
+        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'Google'
+        });
 
-            baseLayers['Google Satélite'].addTo(map);
-            L.control.layers(baseLayers).addTo(map);
-
-            setupDrawingTools();
-            loadStoredData();
-            setupEventListeners();
-        }
-
-        function setupDrawingTools() {
-            drawnItems = new L.FeatureGroup().addTo(map);
-            
-            drawControl = new L.Control.Draw({
-                draw: {
-                    polygon: { shapeOptions: { color: '#e74c3c' } },
-                    polyline: { shapeOptions: { color: '#3498db' } },
-                    marker: { 
-                        icon: L.icon({
-                            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-                            iconSize: [32, 41]
-                        })
-                    },
-                    circle: false,
-                    rectangle: false
-                },
-                edit: { featureGroup: drawnItems }
-            }).addTo(map);
-        }
-
-        function setupEventListeners() {
-            map.on(L.Draw.Event.CREATED, handleDrawCreate);
-            map.on(L.Draw.Event.EDITED, updateFeature);
-            map.on(L.Draw.Event.DELETED, deleteFeature);
-            
-            document.getElementById('attributeForm').addEventListener('submit', saveFeature);
-            document.getElementById('importFile').addEventListener('change', importData);
-        }
-
-        // Funciones de dibujo
-        function toggleDrawing(type) {
-            const options = {
-                polygon: new L.Draw.Polygon(map, drawControl.options.polygon),
-                polyline: new L.Draw.Polyline(map, drawControl.options.polyline),
-                marker: new L.Draw.Marker(map, drawControl.options.marker)
-            };
-            options[type].enable();
-        }
-
-        function handleDrawCreate(e) {
-            currentLayer = e.layer;
-            showAttributeDialog();
-            currentLayer.addTo(drawnItems);
-        }
-
-        // Funciones de formulario
-        function showAttributeDialog() {
-            document.getElementById('attributeDialog').showModal();
-        }
-
-        function closeDialog() {
-            document.getElementById('attributeDialog').close();
-            drawnItems.removeLayer(currentLayer);
-        }
-
-        function getFormData() {
-            return {
-                proyecto: document.getElementById('proyecto').value,
-                productor: document.getElementById('productor').value,
-                vereda: document.getElementById('vereda').value,
-                municipio: document.getElementById('municipio').value,
-                año: document.getElementById('anio').value,
-                ecosistema: document.getElementById('ecosistema').value,
-                observaciones: document.getElementById('observaciones').value
-            };
-        }
-
-        function saveFeature(e) {
-            e.preventDefault();
-            if (!validateForm()) return;
-
-            const feature = {
-                type: 'Feature',
-                geometry: currentLayer.toGeoJSON().geometry,
-                properties: getFormData(),
-                metadata: {
-                    created: new Date().toISOString(),
-                    modified: new Date().toISOString()
-                }
-            };
-
-            storedData.features.push(feature);
-            localStorage.setItem('ambientalData', JSON.stringify(storedData));
-            showNotification('Datos guardados exitosamente');
-            currentLayer.bindPopup(createPopup(feature.properties));
-            document.getElementById('attributeDialog').close();
-        }
-
-        // Funciones de GPS
-        function toggleGPS() {
-            const gpsButton = document.getElementById('gpsToggle');
-            const gpsStatus = document.getElementById('gpsStatus');
-
-            if (!gpsWatchId) {
-                gpsWatchId = navigator.geolocation.watchPosition(
-                    position => {
-                        const latlng = [position.coords.latitude, position.coords.longitude];
-                        if (!window.gpsMarker) {
-                            window.gpsMarker = L.marker(latlng, {
-                                icon: L.divIcon({
-                                    className: 'gps-marker',
-                                    html: '<div class="gps-icon"></div>'
-                                })
-                            }).addTo(map);
-                        } else {
-                            window.gpsMarker.setLatLng(latlng);
-                        }
-                        map.panTo(latlng);
-                        document.getElementById('gpsAccuracy').textContent = 
-                            Math.round(position.coords.accuracy);
-                        gpsStatus.style.display = 'flex';
-                    },
-                    error => {
-                        showNotification('Error de GPS: ' + error.message, 'error');
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 }
-                );
-                gpsButton.textContent = 'Detener GPS';
+        // Funciones generales
+        function toggleLayer(layerName) {
+            if (layers[layerName].getLayers().length > 0) {
+                layers[layerName].clearLayers();
+                drawControl.setDrawingMode(false);
             } else {
-                navigator.geolocation.clearWatch(gpsWatchId);
-                gpsWatchId = null;
-                map.removeLayer(window.gpsMarker);
-                window.gpsMarker = null;
-                gpsButton.textContent = 'GPS';
-                gpsStatus.style.display = 'none';
+                drawControl = new L.Control.Draw({
+                    edit: { featureGroup: layers[layerName] },
+                    draw: { polygon: layerName === 'cultivos', marker: layerName === 'fincas', polyline: layerName === 'infraestructura' }
+                }).addTo(map);
+                map.addLayer(layers[layerName]);
             }
         }
 
-        // Funciones de importación/exportación
-        function exportData() {
-            const geoJSON = {
-                type: 'FeatureCollection',
-                features: storedData.features
-            };
-
-            // Exportar GeoJSON
-            const geojsonStr = JSON.stringify(geoJSON);
-            const blob = new Blob([geojsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'datos_ambientales.geojson';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            // Exportar Excel
-            const wsData = storedData.features.map(feature => ({
-                ...feature.properties,
-                Coordenadas: JSON.stringify(feature.geometry.coordinates)
-            }));
-            
-            const ws = XLSX.utils.json_to_sheet(wsData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Datos");
-            XLSX.writeFile(wb, "datos_ambientales.xlsx");
-        }
-
-        function importData(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                try {
-                    const importedData = JSON.parse(event.target.result);
-                    if (importedData.type === 'FeatureCollection') {
-                        storedData.features = importedData.features;
-                        localStorage.setItem('ambientalData', JSON.stringify(storedData));
-                        loadStoredData();
-                        showNotification('Datos importados correctamente');
-                    }
-                } catch (error) {
-                    showNotification('Error al importar archivo', 'error');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // Funciones auxiliares
-        function loadStoredData() {
-            drawnItems.clearLayers();
-            storedData.features.forEach(f => {
-                const layer = L.geoJSON(f, {
-                    pointToLayer: (geoJsonPoint, latlng) => L.marker(latlng),
-                    style: { color: '#e74c3c' }
-                }).bindPopup(createPopup(f.properties));
-                drawnItems.addLayer(layer);
+        function showGPS() {
+            navigator.geolocation.getCurrentPosition(position => {
+                const coords = [position.coords.latitude, position.coords.longitude];
+                L.circle(coords, { color: '#999', radius: 50 }).addTo(map);
+                map.flyTo(coords, 16);
             });
         }
 
-        function createPopup(properties) {
-            return `<b>${properties.proyecto}</b><hr>
-                    <div>Ecosistema: ${properties.ecosistema}</div>
-                    <div>Ubicación: ${properties.vereda}, ${properties.municipio}</div>
-                    <div>Observaciones: ${properties.observaciones}</div>`;
+        // Persistencia con LocalStorage
+        function saveToStorage(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
         }
 
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.style.background = type === 'error' ? '#e74c3c' : '#2ecc71';
-            notification.style.display = 'block';
-            setTimeout(() => notification.style.display = 'none', 3000);
+        function loadFromStorage(key) {
+            return JSON.parse(localStorage.getItem(key)) || [];
         }
 
-        // Inicialización
-        window.addEventListener('DOMContentLoaded', initMap);
+        // Lógica específica para cada capa
+        // ... (Implementar validaciones, cálculos y manejo de atributos según especificaciones)
+
+        // Exportar a Excel
+        function exportExcel() {
+            const data = {
+                Fincas: loadFromStorage('fincas'),
+                Cultivos: loadFromStorage('cultivos'),
+                Infraestructura: loadFromStorage('infraestructura')
+            };
+            
+            const ws = XLSX.utils.json_to_sheet(data.Fincas);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Fincas');
+            XLSX.writeFile(wb, 'fincas.xlsx');
+        }
+
+        // Importar/Exportar GeoJSON
+        function exportGeoJSON() {
+            const geojson = layers.fincas.toGeoJSON();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
+            const downloadLink = document.createElement("a");
+            downloadLink.setAttribute("href", dataStr);
+            downloadLink.setAttribute("download", "fincas.geojson");
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+        }
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = JSON.parse(reader.result);
+                L.geoJSON(data).addTo(map);
+            };
+            reader.readAsText(file);
+        });
     </script>
 </body>
 </html>
