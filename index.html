@@ -1,108 +1,219 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geoportal de Fincas</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.1.0/dist/leaflet.draw.css" />
+    <title>Geoportal de Coordenadas (OpenStreetMap & Esri Satélite)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
     <style>
-        #map { width: 100%; height: 80vh; }
-        #controls { padding: 10px; background: white; border-radius: 5px; position: fixed; top: 10px; left: 10px; z-index: 9999; }
+        /* CSS Integrado */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h1, h2 {
+            color: #0056b3;
+            text-align: center;
+        }
+
+        #map {
+            height: 500px;
+            width: 80%;
+            margin: 20px auto;
+            border: 1px solid #ddd;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9e9e9;
+            border-radius: 8px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .controls label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .controls input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 250px;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .credits {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="controls">
-        <button onclick="toggleLayer('fincas')">Fincas</button>
-        <button onclick="toggleLayer('cultivos')">Cultivos</button>
-        <button onclick="toggleLayer('infraestructura')">Infraestructura</button>
-        <button onclick="showGPS()">Mi Ubicación</button>
-        <button onclick="exportExcel()">Exportar a Excel</button>
-        <button onclick="exportGeoJSON()">Exportar GeoJSON</button>
-        <input type="file" id="fileInput" style="display: none;" accept=".geojson" onchange="importGeoJSON(this)">
-    </div>
-    <div id="credits" style="position: fixed; bottom: 10px; right: 10px; font-size: 0.8em;">Elaborado por Diego Castaño</div>
+    <h1>Geoportal de Coordenadas (OpenStreetMap & Esri Satélite)</h1>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-draw@1.1.0/dist/leaflet.draw.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/xlsx.full.min.js"></script>
+    <div id="map"></div>
+
+    <div class="controls">
+        <label for="siteName">Nombre del Sitio:</label>
+        <input type="text" id="siteName" placeholder="Ej: Mi casa, Parque principal">
+        <p>Haga clic en el mapa para capturar coordenadas.</p>
+        <p>Coordenadas Capturadas: <span id="capturedCoords">N/A</span></p>
+    </div>
+
+    <h2>Sitios Registrados</h2>
+    <table id="locationsTable">
+        <thead>
+            <tr>
+                <th>Nombre del Sitio</th>
+                <th>Latitud</th>
+                <th>Longitud</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+
+    <div class="credits">
+        Elaborado por Diego Castaño, Esp SIG, 2025.
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
 
     <script>
-        let map, drawControl;
-        const layers = {
-            fincas: L.geoJSON(null, { pointToLayer: (latlng, props) => L.circleMarker(latlng, { radius: 8, color: '#ff7800' }) }),
-            cultivos: L.geoJSON(null, { style: { color: '#00ff00', fillOpacity: 0.5 } }),
-            infraestructura: L.geoJSON(null, { style: { color: '#0000ff', weight: 3 } })
+        let map;
+        let temporaryMarker; // Para el marcador temporal de la ubicación seleccionada
+        let permanentMarkers = L.layerGroup(); // Para almacenar los marcadores permanentes
+
+        // Coordenadas iniciales (Cartago, Colombia)
+        const initialLat = 4.020786;
+        const initialLng = -76.155490;
+        const initialZoom = 15;
+
+        // Inicializar el mapa de Leaflet
+        map = L.map('map').setView([initialLat, initialLng], initialZoom);
+
+        // Definir las capas base
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+
+        const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        // Añadir la capa OpenStreetMap por defecto
+        osmLayer.addTo(map);
+
+        // Definir las capas base para el control de capas
+        const baseMaps = {
+            "OpenStreetMap": osmLayer,
+            "Esri Satélite": esriSatelliteLayer
         };
 
-        map = L.map('map').setView([5.4500, -75.1389], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data © OpenStreetMap contributors'
-        }).addTo(map);
+        // Añadir los marcadores permanentes al mapa como una capa de grupo
+        permanentMarkers.addTo(map);
 
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Esri'
-        }).addTo(map);
+        // Añadir el control de capas al mapa
+        L.control.layers(baseMaps).addTo(map);
 
-        function toggleLayer(layerName) {
-            if (layers[layerName].getLayers().length > 0) {
-                layers[layerName].clearLayers();
-                drawControl.setDrawingMode(false);
-            } else {
-                drawControl = new L.Control.Draw({
-                    edit: { featureGroup: layers[layerName] },
-                    draw: {
-                        polygon: layerName === 'cultivos',
-                        marker: layerName === 'fincas',
-                        polyline: layerName === 'infraestructura'
-                    }
-                }).addTo(map);
-                map.addLayer(layers[layerName]);
+        // Evento para capturar coordenadas al hacer clic en el mapa
+        map.on('click', (e) => {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            document.getElementById('capturedCoords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+            // Eliminar el marcador temporal anterior si existe
+            if (temporaryMarker) {
+                map.removeLayer(temporaryMarker);
             }
-        }
 
-        function showGPS() {
-            navigator.geolocation.getCurrentPosition(position => {
-                const coords = [position.coords.latitude, position.coords.longitude];
-                L.circle(coords, { color: '#999', radius: 50 }).addTo(map);
-                map.flyTo(coords, 16);
-            });
-        }
+            // Crear y añadir un nuevo marcador temporal
+            temporaryMarker = L.marker([lat, lng]).addTo(map)
+                .bindPopup(`
+                    <div>
+                        <h3>Asignar Nombre al Sitio</h3>
+                        <p>Lat: ${lat.toFixed(6)}</p>
+                        <p>Lng: ${lng.toFixed(6)}</p>
+                        <label for="infoWindowSiteName">Nombre:</label>
+                        <input type="text" id="infoWindowSiteName" placeholder="Nombre del sitio">
+                        <button onclick="addLocation('${lat}', '${lng}')">Agregar Sitio</button>
+                    </div>
+                `, { autoPan: false }).openPopup(); // autoPan: false para que el popup no mueva el mapa al abrirse
+        });
 
-        function saveToStorage(key, data) {
-            localStorage.setItem(key, JSON.stringify(data));
-        }
+        function addLocation(lat, lng) {
+            const siteNameInput = document.getElementById('infoWindowSiteName');
+            const siteName = siteNameInput ? siteNameInput.value.trim() : '';
 
-        function loadFromStorage(key) {
-            return JSON.parse(localStorage.getItem(key)) || [];
-        }
+            if (!siteName) {
+                alert('Por favor, ingrese un nombre para el sitio.');
+                return;
+            }
 
-        function exportExcel() {
-            const data = loadFromStorage('fincas') || [];
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Fincas');
-            XLSX.writeFile(wb, 'fincas.xlsx');
-        }
+            const tableBody = document.getElementById('locationsTable').getElementsByTagName('tbody')[0];
+            const newRow = tableBody.insertRow();
 
-        function exportGeoJSON() {
-            const geojson = layers.fincas.toGeoJSON();
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
-            const downloadLink = document.createElement("a");
-            downloadLink.setAttribute("href", dataStr);
-            downloadLink.setAttribute("download", "fincas.geojson");
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-        }
+            const nameCell = newRow.insertCell(0);
+            const latCell = newRow.insertCell(1);
+            const lngCell = newRow.insertCell(2);
 
-        function importGeoJSON(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = JSON.parse(reader.result);
-                L.geoJSON(data).addTo(map);
-            };
-            reader.readAsText(file.files[0]);
+            nameCell.textContent = siteName;
+            latCell.textContent = parseFloat(lat).toFixed(6);
+            lngCell.textContent = parseFloat(lng).toFixed(6);
+
+            // Añadir un marcador permanente en el mapa para el sitio registrado
+            const newPermanentMarker = L.marker([parseFloat(lat), parseFloat(lng)])
+                .bindPopup(`<b>${siteName}</b><br>Lat: ${parseFloat(lat).toFixed(6)}<br>Lng: ${parseFloat(lng).toFixed(6)}`);
+            permanentMarkers.addLayer(newPermanentMarker); // Añadir al grupo de marcadores permanentes
+
+            // Limpiar el campo de nombre después de agregar
+            document.getElementById('siteName').value = '';
+            document.getElementById('capturedCoords').textContent = 'N/A';
+
+            // Quitar el marcador temporal después de añadir el sitio
+            if (temporaryMarker) {
+                map.removeLayer(temporaryMarker);
+                temporaryMarker = null; // Reiniciar el marcador temporal
+            }
+
+            // Cierra el popup si está abierto después de agregar el sitio
+            map.closePopup();
         }
     </script>
 </body>
