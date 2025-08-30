@@ -162,6 +162,28 @@
             margin: 10px 0;
             font-size: 0.9em;
         }
+        
+        .preview-container {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        
+        .config-panel {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .config-panel h4 {
+            margin-top: 0;
+            color: #856404;
+        }
     </style>
 </head>
 <body>
@@ -194,23 +216,45 @@
                     <ul>
                         <li><strong>DMS (Grados, Minutos, Segundos):</strong> 5°85'0.4"N, 70°57'2.3"W</li>
                         <li><strong>Decimal:</strong> 4.746, -74.042</li>
+                        <li><strong>Archivos con encabezados y diferentes separadores</strong></li>
                     </ul>
-                    <p>Formato de entrada: nombre,latitud,longitud (uno por línea)</p>
                 </div>
                 
-                <textarea id="batchCoords" class="coords-input" placeholder="Ejemplo DMS:
-Mi Casa,5°85'0.4\"N,70°57'2.3\"W
-Parque Principal,4°35'10.2\"N,76°10'20.5\"W
-
-Ejemplo Decimal:
-Plaza de Toros,4.736,-74.052
-Estadio,4.653,-74.098"></textarea>
+                <div class="config-panel">
+                    <h4>Configuración del archivo</h4>
+                    <label>
+                        <input type="checkbox" id="hasHeader" checked> El archivo tiene fila de encabezado
+                    </label>
+                    <br>
+                    <label>Separador:
+                        <select id="separator">
+                            <option value=",">Coma (,)</option>
+                            <option value=";">Punto y coma (;)</option>
+                            <option value="tab">Tabulador</option>
+                            <option value="|">Pipe (|)</option>
+                            <option value="auto">Detección automática</option>
+                        </select>
+                    </label>
+                    <br>
+                    <label>Columnas (índice base 1):
+                        <input type="number" id="nameCol" placeholder="Nombre" value="1" min="1" style="width: 60px;">
+                        <input type="number" id="latCol" placeholder="Latitud" value="2" min="1" style="width: 60px;">
+                        <input type="number" id="lngCol" placeholder="Longitud" value="3" min="1" style="width: 60px;">
+                    </label>
+                </div>
+                
+                <textarea id="batchCoords" class="coords-input" placeholder="Pegue aquí el contenido del archivo o use el botón para cargar un archivo..."></textarea>
                 <button onclick="processBatchCoords()">Procesar Coordenadas</button>
                 
                 <div class="file-upload">
-                    <p>O cargar desde un archivo CSV:</p>
-                    <input type="file" id="csvFile" accept=".csv">
-                    <button onclick="processCSV()">Procesar CSV</button>
+                    <p>O cargar desde un archivo:</p>
+                    <input type="file" id="csvFile" accept=".csv,.txt">
+                    <button onclick="processFile()">Procesar Archivo</button>
+                </div>
+                
+                <div class="preview-container">
+                    <h4>Vista previa (primeras 5 líneas):</h4>
+                    <div id="filePreview"></div>
                 </div>
             </div>
         </div>
@@ -263,9 +307,10 @@ Estadio,4.653,-74.098"></textarea>
         proj4.defs("EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs");
 
         let map;
-        let temporaryMarker; // Para el marcador temporal de la ubicación seleccionada
-        let permanentMarkers = L.layerGroup(); // Para almacenar los marcadores permanentes
-        let locations = []; // Array para almacenar todas las ubicaciones
+        let temporaryMarker;
+        let permanentMarkers = L.layerGroup();
+        let locations = [];
+        let fileContent = "";
 
         // Coordenadas iniciales (Cartago, Colombia)
         const initialLat = 4.020786;
@@ -301,19 +346,23 @@ Estadio,4.653,-74.098"></textarea>
 
         // Función para convertir coordenadas DMS a decimal
         function parseDMSString(dmsString) {
+            if (typeof dmsString !== 'string') {
+                return parseFloat(dmsString);
+            }
+            
             // Verificar si ya es un número decimal
             if (!isNaN(dmsString) && dmsString !== '') {
                 return parseFloat(dmsString);
             }
             
             // Expresión regular para analizar formato DMS (ej: 5°85'0.4"N)
-            const regex = /([0-9]{1,3})°\s*([0-9]{1,2})'\s*([0-9]{1,2}(?:\.[0-9]+)?)"\s*([NSEWO])?/i;
-            const match = dmsString.match(regex);
+            const regex = /([0-9]{1,3})[°\s]+\s*([0-9]{1,2})['\s]+\s*([0-9]{1,2}(?:\.[0-9]+)?)[\"\s]+\s*([NSEWO])?/i;
+            const match = dmsString.trim().match(regex);
             
             if (!match) {
                 // Intentar con formato más simple (ej: 5°85'0.4)
-                const simpleRegex = /([0-9]{1,3})°\s*([0-9]{1,2})'\s*([0-9]{1,2}(?:\.[0-9]+)?)/i;
-                const simpleMatch = dmsString.match(simpleRegex);
+                const simpleRegex = /([0-9]{1,3})[°\s]+\s*([0-9]{1,2})['\s]+\s*([0-9]{1,2}(?:\.[0-9]+)?)/i;
+                const simpleMatch = dmsString.trim().match(simpleRegex);
                 
                 if (!simpleMatch) {
                     throw new Error(`Formato DMS no reconocido: ${dmsString}`);
@@ -341,6 +390,123 @@ Estadio,4.653,-74.098"></textarea>
             return decimal;
         }
 
+        // Función para detectar el separador automáticamente
+        function detectSeparator(text) {
+            const lines = text.split('\n').filter(line => line.trim().length > 0);
+            if (lines.length < 2) return ",";
+            
+            // Probar con las primeras 5 líneas
+            const sampleLines = lines.slice(0, Math.min(5, lines.length));
+            
+            const commaCounts = sampleLines.map(line => (line.match(/,/g) || []).length);
+            const semicolonCounts = sampleLines.map(line => (line.match(/;/g) || []).length);
+            const tabCounts = sampleLines.map(line => (line.match(/\t/g) || []).length);
+            const pipeCounts = sampleLines.map(line => (line.match(/\|/g) || []).length);
+            
+            const avgCommas = commaCounts.reduce((a, b) => a + b, 0) / commaCounts.length;
+            const avgSemicolons = semicolonCounts.reduce((a, b) => a + b, 0) / semicolonCounts.length;
+            const avgTabs = tabCounts.reduce((a, b) => a + b, 0) / tabCounts.length;
+            const avgPipes = pipeCounts.reduce((a, b) => a + b, 0) / pipeCounts.length;
+            
+            if (avgTabs > avgCommas && avgTabs > avgSemicolons && avgTabs > avgPipes) return "tab";
+            if (avgSemicolons > avgCommas && avgSemicolons > avgPipes) return ";";
+            if (avgPipes > avgCommas) return "|";
+            return ",";
+        }
+
+        // Función para procesar el contenido del archivo
+        function processFileContent(content) {
+            const hasHeader = document.getElementById('hasHeader').checked;
+            let separator = document.getElementById('separator').value;
+            const nameCol = parseInt(document.getElementById('nameCol').value) - 1;
+            const latCol = parseInt(document.getElementById('latCol').value) - 1;
+            const lngCol = parseInt(document.getElementById('lngCol').value) - 1;
+            
+            if (separator === 'auto') {
+                separator = detectSeparator(content);
+            }
+            
+            const actualSeparator = separator === 'tab' ? '\t' : separator;
+            const lines = content.split('\n').filter(line => line.trim().length > 0);
+            
+            let startLine = hasHeader ? 1 : 0;
+            let processed = 0;
+            let errors = 0;
+            let errorMessages = [];
+            
+            for (let i = startLine; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                let parts;
+                if (actualSeparator === ',') {
+                    // Manejar CSV con comas dentro de comillas
+                    parts = line.split(',').map(part => part.replace(/^"|"$/g, '').trim());
+                } else {
+                    parts = line.split(actualSeparator).map(part => part.trim());
+                }
+                
+                if (Math.max(nameCol, latCol, lngCol) >= parts.length) {
+                    errors++;
+                    errorMessages.push(`Línea ${i + 1}: No hay suficientes columnas`);
+                    continue;
+                }
+                
+                const name = parts[nameCol] || `Punto ${i + 1}`;
+                const latStr = parts[latCol];
+                const lngStr = parts[lngCol];
+                
+                try {
+                    let lat, lng;
+                    
+                    try {
+                        lat = parseDMSString(latStr);
+                    } catch (e) {
+                        lat = parseFloat(latStr);
+                        if (isNaN(lat)) {
+                            throw new Error(`Latitud no válida: ${latStr}`);
+                        }
+                    }
+                    
+                    try {
+                        lng = parseDMSString(lngStr);
+                    } catch (e) {
+                        lng = parseFloat(lngStr);
+                        if (isNaN(lng)) {
+                            throw new Error(`Longitud no válida: ${lngStr}`);
+                        }
+                    }
+                    
+                    if (isNaN(lat) || isNaN(lng)) {
+                        throw new Error(`Coordenadas no válidas: ${latStr}, ${lngStr}`);
+                    }
+                    
+                    addLocation(lat, lng, name);
+                    processed++;
+                } catch (error) {
+                    errors++;
+                    errorMessages.push(`Línea ${i + 1}: ${error.message}`);
+                }
+            }
+            
+            return { processed, errors, errorMessages };
+        }
+
+        // Función para mostrar vista previa del archivo
+        function updateFilePreview(content) {
+            const preview = document.getElementById('filePreview');
+            const lines = content.split('\n').filter(line => line.trim().length > 0);
+            const previewLines = lines.slice(0, 5);
+            
+            preview.innerHTML = previewLines.map((line, index) => 
+                `<div>${index + 1}: ${line}</div>`
+            ).join('');
+            
+            if (lines.length > 5) {
+                preview.innerHTML += `<div>... (${lines.length - 5} líneas más)</div>`;
+            }
+        }
+
         // Evento para capturar coordenadas al hacer clic en el mapa
         map.on('click', (e) => {
             const lat = e.latlng.lat;
@@ -348,12 +514,10 @@ Estadio,4.653,-74.098"></textarea>
 
             document.getElementById('capturedCoords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-            // Eliminar el marcador temporal anterior si existe
             if (temporaryMarker) {
                 map.removeLayer(temporaryMarker);
             }
 
-            // Crear y añadir un nuevo marcador temporal
             temporaryMarker = L.marker([lat, lng]).addTo(map)
                 .bindPopup(`
                     <div>
@@ -364,7 +528,7 @@ Estadio,4.653,-74.098"></textarea>
                         <input type="text" id="infoWindowSiteName" placeholder="Nombre del sitio">
                         <button onclick="addLocation('${lat}', '${lng}')">Agregar Sitio</button>
                     </div>
-                `, { autoPan: false }).openPopup(); // autoPan: false para que el popup no mueva el mapa al abrirse
+                `, { autoPan: false }).openPopup();
         });
 
         function addLocation(lat, lng, name = null) {
@@ -377,7 +541,6 @@ Estadio,4.653,-74.098"></textarea>
                 return;
             }
 
-            // Crear objeto de ubicación
             const location = {
                 name: siteName,
                 lat: parseFloat(lat),
@@ -387,28 +550,21 @@ Estadio,4.653,-74.098"></textarea>
                 projection: null
             };
             
-            // Añadir a la lista
             locations.push(location);
-            
-            // Actualizar la tabla
             updateTable();
             
-            // Añadir un marcador permanente en el mapa para el sitio registrado
             const newPermanentMarker = L.marker([parseFloat(lat), parseFloat(lng)])
                 .bindPopup(`<b>${siteName}</b><br>Lat: ${parseFloat(lat).toFixed(6)}<br>Lng: ${parseFloat(lng).toFixed(6)}`);
-            permanentMarkers.addLayer(newPermanentMarker); // Añadir al grupo de marcadores permanentes
+            permanentMarkers.addLayer(newPermanentMarker);
 
-            // Limpiar los campos después de agregar
             document.getElementById('siteName').value = '';
             document.getElementById('capturedCoords').textContent = 'N/A';
 
-            // Quitar el marcador temporal después de añadir el sitio
             if (temporaryMarker) {
                 map.removeLayer(temporaryMarker);
-                temporaryMarker = null; // Reiniciar el marcador temporal
+                temporaryMarker = null;
             }
 
-            // Cierra el popup si está abierto después de agregar el sitio
             map.closePopup();
             
             return location;
@@ -444,74 +600,23 @@ Estadio,4.653,-74.098"></textarea>
                 return;
             }
             
-            const lines = coordsText.split('\n');
-            let processed = 0;
-            let errors = 0;
-            let errorMessages = [];
+            const result = processFileContent(coordsText);
             
-            lines.forEach((line, index) => {
-                line = line.trim();
-                if (!line) return;
-                
-                const parts = line.split(',');
-                if (parts.length < 3) {
-                    errors++;
-                    errorMessages.push(`Línea ${index + 1}: Formato incorrecto - se esperaban al menos 3 valores separados por coma`);
-                    return;
+            let message = `Procesamiento completado: ${result.processed} coordenadas añadidas, ${result.errors} errores.`;
+            if (result.errorMessages.length > 0) {
+                message += "\n\nErrores:\n" + result.errorMessages.slice(0, 10).join("\n");
+                if (result.errorMessages.length > 10) {
+                    message += `\n... (${result.errorMessages.length - 10} errores más)`;
                 }
-                
-                const name = parts[0].trim();
-                const latStr = parts[1].trim();
-                const lngStr = parts[2].trim();
-                
-                try {
-                    // Intentar procesar como coordenadas DMS o decimales
-                    let lat, lng;
-                    
-                    try {
-                        lat = parseDMSString(latStr);
-                    } catch (e) {
-                        // Si falla el análisis DMS, intentar como decimal
-                        lat = parseFloat(latStr);
-                        if (isNaN(lat)) {
-                            throw new Error(`Latitud no válida: ${latStr}`);
-                        }
-                    }
-                    
-                    try {
-                        lng = parseDMSString(lngStr);
-                    } catch (e) {
-                        // Si falla el análisis DMS, intentar como decimal
-                        lng = parseFloat(lngStr);
-                        if (isNaN(lng)) {
-                            throw new Error(`Longitud no válida: ${lngStr}`);
-                        }
-                    }
-                    
-                    if (isNaN(lat) || isNaN(lng)) {
-                        throw new Error(`Coordenadas no válidas: ${latStr}, ${lngStr}`);
-                    }
-                    
-                    addLocation(lat, lng, name);
-                    processed++;
-                } catch (error) {
-                    errors++;
-                    errorMessages.push(`Línea ${index + 1}: ${error.message}`);
-                }
-            });
-            
-            let message = `Procesamiento completado: ${processed} coordenadas añadidas, ${errors} errores.`;
-            if (errorMessages.length > 0) {
-                message += "\n\nErrores:\n" + errorMessages.join("\n");
             }
             
             alert(message);
         }
 
-        function processCSV() {
+        function processFile() {
             const fileInput = document.getElementById('csvFile');
             if (!fileInput.files.length) {
-                alert('Por favor, seleccione un archivo CSV.');
+                alert('Por favor, seleccione un archivo.');
                 return;
             }
             
@@ -519,8 +624,9 @@ Estadio,4.653,-74.098"></textarea>
             const reader = new FileReader();
             
             reader.onload = function(e) {
-                const contents = e.target.result;
-                document.getElementById('batchCoords').value = contents;
+                fileContent = e.target.result;
+                document.getElementById('batchCoords').value = fileContent;
+                updateFilePreview(fileContent);
                 processBatchCoords();
             };
             
@@ -537,14 +643,12 @@ Estadio,4.653,-74.098"></textarea>
             
             locations.forEach(location => {
                 try {
-                    // Convertir de WGS84 (EPSG:4326) al sistema seleccionado
                     const result = proj4('EPSG:4326', projectionCode, [location.lng, location.lat]);
                     location.x = result[0];
                     location.y = result[1];
                     location.projection = projectionCode;
                 } catch (error) {
                     console.error('Error en conversión:', error);
-                    alert('Error al convertir coordenadas. Verifique la consola para más detalles.');
                 }
             });
             
@@ -553,7 +657,6 @@ Estadio,4.653,-74.098"></textarea>
         }
 
         function exportToCSV() {
-            // Verificar si hay coordenadas convertidas
             const hasConverted = locations.some(loc => loc.x !== null && loc.y !== null);
             if (!hasConverted) {
                 alert('Primero debe convertir las coordenadas a planas antes de exportar.');
@@ -578,11 +681,11 @@ Estadio,4.653,-74.098"></textarea>
 
         function openTab(evt, tabName) {
             var i, tabcontent, tablinks;
-            tabcontent = document.getElementsByClassName("tabcontent");
+            tabcontent = document.getElementsByClassName('tabcontent');
             for (i = 0; i < tabcontent.length; i++) {
                 tabcontent[i].style.display = "none";
             }
-            tablinks = document.getElementsByClassName("tablinks");
+            tablinks = document.getElementsByClassName('tablinks');
             for (i = 0; i < tablinks.length; i++) {
                 tablinks[i].className = tablinks[i].className.replace(" active", "");
             }
@@ -590,10 +693,11 @@ Estadio,4.653,-74.098"></textarea>
             evt.currentTarget.className += " active";
         }
         
-        // Ejemplo de coordenadas DMS para probar
-        document.getElementById('batchCoords').value = `Ejemplo 1,5°85'0.4"N,70°57'2.3"W
-Ejemplo 2,4°35'10.2"N,74°4'20.5"W
-Ejemplo 3,6°15'30.8"N,75°35'15.3"W`;
+        // Inicializar con un ejemplo
+        document.getElementById('batchCoords').value = `Punto 1,5°85'0.4"N,70°57'2.3"W
+Punto 2,4.735,-74.042
+Punto 3,6°15'30.8"N,75°35'15.3"W`;
+        updateFilePreview(document.getElementById('batchCoords').value);
     </script>
 </body>
 </html>
