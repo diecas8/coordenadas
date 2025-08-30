@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Geoportal de Coordenadas (OpenStreetMap & Esri Satélite)</title>
+    <title>Geoportal de Coordenadas (Conversión a Planas)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
      crossorigin=""/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
     <style>
         /* CSS Integrado */
         body {
@@ -43,7 +44,7 @@
             margin-right: 10px;
         }
 
-        .controls input[type="text"] {
+        .controls input[type="text"], .controls select {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -51,11 +52,34 @@
             margin-bottom: 10px;
         }
 
+        .file-upload {
+            margin: 15px 0;
+            padding: 10px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
         table {
             width: 80%;
             margin: 20px auto;
             border-collapse: collapse;
             box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            font-size: 0.9em;
         }
 
         th, td {
@@ -79,18 +103,132 @@
             font-size: 0.9em;
             color: #666;
         }
+        
+        .tab-container {
+            width: 80%;
+            margin: 0 auto;
+        }
+        
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            color: #333;
+        }
+        
+        .tab button:hover {
+            background-color: #ddd;
+        }
+        
+        .tab button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .tabcontent {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            background-color: white;
+        }
+        
+        .coords-input {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .format-info {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
-    <h1>Geoportal de Coordenadas (OpenStreetMap & Esri Satélite)</h1>
+    <h1>Geoportal de Coordenadas (Conversión a Planas)</h1>
 
-    <div id="map"></div>
+    <div class="tab-container">
+        <div class="tab">
+            <button class="tablinks active" onclick="openTab(event, 'MapTab')">Mapa</button>
+            <button class="tablinks" onclick="openTab(event, 'UploadTab')">Cargar Coordenadas</button>
+            <button class="tablinks" onclick="openTab(event, 'ConvertTab')">Convertir Coordenadas</button>
+        </div>
+        
+        <div id="MapTab" class="tabcontent" style="display:block;">
+            <div id="map"></div>
 
-    <div class="controls">
-        <label for="siteName">Nombre del Sitio:</label>
-        <input type="text" id="siteName" placeholder="Ej: Mi casa, Parque principal">
-        <p>Haga clic en el mapa para capturar coordenadas.</p>
-        <p>Coordenadas Capturadas: <span id="capturedCoords">N/A</span></p>
+            <div class="controls">
+                <label for="siteName">Nombre del Sitio:</label>
+                <input type="text" id="siteName" placeholder="Ej: Mi casa, Parque principal">
+                <p>Haga clic en el mapa para capturar coordenadas.</p>
+                <p>Coordenadas Capturadas: <span id="capturedCoords">N/A</span></p>
+            </div>
+        </div>
+        
+        <div id="UploadTab" class="tabcontent">
+            <div class="controls">
+                <h3>Cargar múltiples coordenadas</h3>
+                
+                <div class="format-info">
+                    <p><strong>Formatos aceptados:</strong></p>
+                    <ul>
+                        <li><strong>DMS (Grados, Minutos, Segundos):</strong> 5°85'0.4"N, 70°57'2.3"W</li>
+                        <li><strong>Decimal:</strong> 4.746, -74.042</li>
+                    </ul>
+                    <p>Formato de entrada: nombre,latitud,longitud (uno por línea)</p>
+                </div>
+                
+                <textarea id="batchCoords" class="coords-input" placeholder="Ejemplo DMS:
+Mi Casa,5°85'0.4\"N,70°57'2.3\"W
+Parque Principal,4°35'10.2\"N,76°10'20.5\"W
+
+Ejemplo Decimal:
+Plaza de Toros,4.736,-74.052
+Estadio,4.653,-74.098"></textarea>
+                <button onclick="processBatchCoords()">Procesar Coordenadas</button>
+                
+                <div class="file-upload">
+                    <p>O cargar desde un archivo CSV:</p>
+                    <input type="file" id="csvFile" accept=".csv">
+                    <button onclick="processCSV()">Procesar CSV</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="ConvertTab" class="tabcontent">
+            <div class="controls">
+                <h3>Convertir coordenadas a planas</h3>
+                <label for="projectionSelect">Sistema de coordenadas:</label>
+                <select id="projectionSelect">
+                    <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
+                    <option value="EPSG:21897">Colombia Bogotá Zone (EPSG:21897)</option>
+                    <option value="EPSG:3116">Colombia MAGNA (EPSG:3116)</option>
+                    <option value="EPSG:32618">WGS 84 / UTM zone 18N (EPSG:32618)</option>
+                </select>
+                <button onclick="convertToPlanas()">Convertir a Coordenadas Planas</button>
+                <button onclick="exportToCSV()">Exportar a CSV</button>
+            </div>
+        </div>
     </div>
 
     <h2>Sitios Registrados</h2>
@@ -100,10 +238,13 @@
                 <th>Nombre del Sitio</th>
                 <th>Latitud</th>
                 <th>Longitud</th>
+                <th>Coordenada X (Plana)</th>
+                <th>Coordenada Y (Plana)</th>
+                <th>Sistema</th>
             </tr>
         </thead>
         <tbody>
-            </tbody>
+        </tbody>
     </table>
 
     <div class="credits">
@@ -115,9 +256,16 @@
      crossorigin=""></script>
 
     <script>
+        // Definir sistemas de coordenadas para proj4
+        proj4.defs("EPSG:21897", "+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
+        proj4.defs("EPSG:3116", "+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
+        proj4.defs("EPSG:32618", "+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs");
+
         let map;
         let temporaryMarker; // Para el marcador temporal de la ubicación seleccionada
         let permanentMarkers = L.layerGroup(); // Para almacenar los marcadores permanentes
+        let locations = []; // Array para almacenar todas las ubicaciones
 
         // Coordenadas iniciales (Cartago, Colombia)
         const initialLat = 4.020786;
@@ -151,6 +299,48 @@
         // Añadir el control de capas al mapa
         L.control.layers(baseMaps).addTo(map);
 
+        // Función para convertir coordenadas DMS a decimal
+        function parseDMSString(dmsString) {
+            // Verificar si ya es un número decimal
+            if (!isNaN(dmsString) && dmsString !== '') {
+                return parseFloat(dmsString);
+            }
+            
+            // Expresión regular para analizar formato DMS (ej: 5°85'0.4"N)
+            const regex = /([0-9]{1,3})°\s*([0-9]{1,2})'\s*([0-9]{1,2}(?:\.[0-9]+)?)"\s*([NSEWO])?/i;
+            const match = dmsString.match(regex);
+            
+            if (!match) {
+                // Intentar con formato más simple (ej: 5°85'0.4)
+                const simpleRegex = /([0-9]{1,3})°\s*([0-9]{1,2})'\s*([0-9]{1,2}(?:\.[0-9]+)?)/i;
+                const simpleMatch = dmsString.match(simpleRegex);
+                
+                if (!simpleMatch) {
+                    throw new Error(`Formato DMS no reconocido: ${dmsString}`);
+                }
+                
+                const degrees = parseFloat(simpleMatch[1]);
+                const minutes = parseFloat(simpleMatch[2]);
+                const seconds = parseFloat(simpleMatch[3]);
+                
+                return degrees + (minutes / 60) + (seconds / 3600);
+            }
+            
+            const degrees = parseFloat(match[1]);
+            const minutes = parseFloat(match[2]);
+            const seconds = parseFloat(match[3]);
+            const direction = match[4] ? match[4].toUpperCase() : '';
+            
+            let decimal = degrees + (minutes / 60) + (seconds / 3600);
+            
+            // Ajustar según la dirección (N/S/E/O)
+            if (direction === 'S' || direction === 'W' || direction === 'O') {
+                decimal = -decimal;
+            }
+            
+            return decimal;
+        }
+
         // Evento para capturar coordenadas al hacer clic en el mapa
         map.on('click', (e) => {
             const lat = e.latlng.lat;
@@ -177,32 +367,38 @@
                 `, { autoPan: false }).openPopup(); // autoPan: false para que el popup no mueva el mapa al abrirse
         });
 
-        function addLocation(lat, lng) {
-            const siteNameInput = document.getElementById('infoWindowSiteName');
-            const siteName = siteNameInput ? siteNameInput.value.trim() : '';
-
+        function addLocation(lat, lng, name = null) {
+            const siteName = name || (document.getElementById('infoWindowSiteName') ? 
+                                    document.getElementById('infoWindowSiteName').value.trim() : 
+                                    document.getElementById('siteName').value.trim());
+            
             if (!siteName) {
                 alert('Por favor, ingrese un nombre para el sitio.');
                 return;
             }
 
-            const tableBody = document.getElementById('locationsTable').getElementsByTagName('tbody')[0];
-            const newRow = tableBody.insertRow();
-
-            const nameCell = newRow.insertCell(0);
-            const latCell = newRow.insertCell(1);
-            const lngCell = newRow.insertCell(2);
-
-            nameCell.textContent = siteName;
-            latCell.textContent = parseFloat(lat).toFixed(6);
-            lngCell.textContent = parseFloat(lng).toFixed(6);
-
+            // Crear objeto de ubicación
+            const location = {
+                name: siteName,
+                lat: parseFloat(lat),
+                lng: parseFloat(lng),
+                x: null,
+                y: null,
+                projection: null
+            };
+            
+            // Añadir a la lista
+            locations.push(location);
+            
+            // Actualizar la tabla
+            updateTable();
+            
             // Añadir un marcador permanente en el mapa para el sitio registrado
             const newPermanentMarker = L.marker([parseFloat(lat), parseFloat(lng)])
                 .bindPopup(`<b>${siteName}</b><br>Lat: ${parseFloat(lat).toFixed(6)}<br>Lng: ${parseFloat(lng).toFixed(6)}`);
             permanentMarkers.addLayer(newPermanentMarker); // Añadir al grupo de marcadores permanentes
 
-            // Limpiar el campo de nombre después de agregar
+            // Limpiar los campos después de agregar
             document.getElementById('siteName').value = '';
             document.getElementById('capturedCoords').textContent = 'N/A';
 
@@ -214,7 +410,190 @@
 
             // Cierra el popup si está abierto después de agregar el sitio
             map.closePopup();
+            
+            return location;
         }
+
+        function updateTable() {
+            const tableBody = document.getElementById('locationsTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+            
+            locations.forEach(location => {
+                const newRow = tableBody.insertRow();
+                
+                const nameCell = newRow.insertCell(0);
+                const latCell = newRow.insertCell(1);
+                const lngCell = newRow.insertCell(2);
+                const xCell = newRow.insertCell(3);
+                const yCell = newRow.insertCell(4);
+                const projCell = newRow.insertCell(5);
+                
+                nameCell.textContent = location.name;
+                latCell.textContent = location.lat.toFixed(6);
+                lngCell.textContent = location.lng.toFixed(6);
+                xCell.textContent = location.x ? location.x.toFixed(2) : 'No convertido';
+                yCell.textContent = location.y ? location.y.toFixed(2) : 'No convertido';
+                projCell.textContent = location.projection || 'N/A';
+            });
+        }
+
+        function processBatchCoords() {
+            const coordsText = document.getElementById('batchCoords').value;
+            if (!coordsText.trim()) {
+                alert('Por favor, ingrese coordenadas en el formato especificado.');
+                return;
+            }
+            
+            const lines = coordsText.split('\n');
+            let processed = 0;
+            let errors = 0;
+            let errorMessages = [];
+            
+            lines.forEach((line, index) => {
+                line = line.trim();
+                if (!line) return;
+                
+                const parts = line.split(',');
+                if (parts.length < 3) {
+                    errors++;
+                    errorMessages.push(`Línea ${index + 1}: Formato incorrecto - se esperaban al menos 3 valores separados por coma`);
+                    return;
+                }
+                
+                const name = parts[0].trim();
+                const latStr = parts[1].trim();
+                const lngStr = parts[2].trim();
+                
+                try {
+                    // Intentar procesar como coordenadas DMS o decimales
+                    let lat, lng;
+                    
+                    try {
+                        lat = parseDMSString(latStr);
+                    } catch (e) {
+                        // Si falla el análisis DMS, intentar como decimal
+                        lat = parseFloat(latStr);
+                        if (isNaN(lat)) {
+                            throw new Error(`Latitud no válida: ${latStr}`);
+                        }
+                    }
+                    
+                    try {
+                        lng = parseDMSString(lngStr);
+                    } catch (e) {
+                        // Si falla el análisis DMS, intentar como decimal
+                        lng = parseFloat(lngStr);
+                        if (isNaN(lng)) {
+                            throw new Error(`Longitud no válida: ${lngStr}`);
+                        }
+                    }
+                    
+                    if (isNaN(lat) || isNaN(lng)) {
+                        throw new Error(`Coordenadas no válidas: ${latStr}, ${lngStr}`);
+                    }
+                    
+                    addLocation(lat, lng, name);
+                    processed++;
+                } catch (error) {
+                    errors++;
+                    errorMessages.push(`Línea ${index + 1}: ${error.message}`);
+                }
+            });
+            
+            let message = `Procesamiento completado: ${processed} coordenadas añadidas, ${errors} errores.`;
+            if (errorMessages.length > 0) {
+                message += "\n\nErrores:\n" + errorMessages.join("\n");
+            }
+            
+            alert(message);
+        }
+
+        function processCSV() {
+            const fileInput = document.getElementById('csvFile');
+            if (!fileInput.files.length) {
+                alert('Por favor, seleccione un archivo CSV.');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                document.getElementById('batchCoords').value = contents;
+                processBatchCoords();
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function convertToPlanas() {
+            if (locations.length === 0) {
+                alert('No hay coordenadas para convertir. Por favor, cargue algunas coordenadas primero.');
+                return;
+            }
+            
+            const projectionCode = document.getElementById('projectionSelect').value;
+            
+            locations.forEach(location => {
+                try {
+                    // Convertir de WGS84 (EPSG:4326) al sistema seleccionado
+                    const result = proj4('EPSG:4326', projectionCode, [location.lng, location.lat]);
+                    location.x = result[0];
+                    location.y = result[1];
+                    location.projection = projectionCode;
+                } catch (error) {
+                    console.error('Error en conversión:', error);
+                    alert('Error al convertir coordenadas. Verifique la consola para más detalles.');
+                }
+            });
+            
+            updateTable();
+            alert('Conversión completada.');
+        }
+
+        function exportToCSV() {
+            // Verificar si hay coordenadas convertidas
+            const hasConverted = locations.some(loc => loc.x !== null && loc.y !== null);
+            if (!hasConverted) {
+                alert('Primero debe convertir las coordenadas a planas antes de exportar.');
+                return;
+            }
+            
+            let csvContent = "Nombre,Latitud,Longitud,X,Y,Sistema\n";
+            
+            locations.forEach(location => {
+                csvContent += `"${location.name}",${location.lat},${location.lng},${location.x},${location.y},${location.projection}\n`;
+            });
+            
+            const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "coordenadas_convertidas.csv");
+            document.body.appendChild(link);
+            
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+        
+        // Ejemplo de coordenadas DMS para probar
+        document.getElementById('batchCoords').value = `Ejemplo 1,5°85'0.4"N,70°57'2.3"W
+Ejemplo 2,4°35'10.2"N,74°4'20.5"W
+Ejemplo 3,6°15'30.8"N,75°35'15.3"W`;
     </script>
 </body>
 </html>
