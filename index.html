@@ -1,1053 +1,480 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Geoportal - Visualización de Coordenadas</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geoportal - Verificación de Puntos CVC</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        :root {
-            --primary-color: #0056b3;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --light-color: #f8f9fa;
-            --dark-color: #343a40;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f7fa;
-            color: #333;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f5f5f5;
         }
         
         header {
-            background: var(--primary-color);
+            background-color: #2c3e50;
             color: white;
-            padding: 20px;
+            padding: 1rem;
             text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         
-        h1, h2, h3 {
-            margin-top: 0;
-        }
-        
-        .tab-container {
-            margin: 20px;
-        }
-        
-        .tab {
+        .container {
             display: flex;
-            border-bottom: 2px solid var(--primary-color);
+            flex: 1;
+            overflow: hidden;
         }
         
-        .tab button {
-            background-color: inherit;
-            border: none;
-            outline: none;
-            cursor: pointer;
-            padding: 14px 16px;
-            transition: 0.3s;
-            font-weight: bold;
-            color: var(--secondary-color);
-            border-top-left-radius: 5px;
-            border-top-right-radius: 5px;
-            margin-right: 5px;
-        }
-        
-        .tab button:hover {
-            background-color: #e9ecef;
-        }
-        
-        .tab button.active {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        
-        .tabcontent {
-            display: none;
+        .sidebar {
+            width: 350px;
+            background-color: #ecf0f1;
             padding: 20px;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 5px 5px;
-            background-color: white;
-            animation: fadeEffect 0.5s;
-        }
-        
-        @keyframes fadeEffect {
-            from {opacity: 0;}
-            to {opacity: 1;}
-        }
-        
-        #map {
-            height: 500px;
-            width: 100%;
-            margin: 20px 0;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            z-index: 1;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
         }
         
         .map-container {
+            flex: 1;
             position: relative;
         }
         
-        .map-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        }
-        
-        .controls {
-            margin-bottom: 20px;
-            padding: 20px;
-            background-color: var(--light-color);
-            border-radius: 5px;
-        }
-        
-        .config-panel {
-            background-color: #e7f3ff;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid var(--primary-color);
-        }
-        
-        .preview-container {
-            margin-top: 20px;
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-        }
-        
-        .error-panel {
-            background-color: #f8d7da;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid var(--danger-color);
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .success-panel {
-            background-color: #d4edda;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid var(--success-color);
-        }
-        
-        .coords-input {
+        #map {
+            height: 100%;
             width: 100%;
-            height: 150px;
-            margin-bottom: 10px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: monospace;
-            resize: vertical;
         }
         
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }
-        
-        th {
-            background-color: var(--primary-color);
-            color: white;
-            position: sticky;
-            top: 0;
-        }
-        
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-        
-        tr:hover {
-            background-color: #e9ecef;
-        }
-        
-        .btn {
-            display: inline-block;
-            font-weight: 400;
-            color: #212529;
-            text-align: center;
-            vertical-align: middle;
-            cursor: pointer;
-            background-color: transparent;
-            border: 1px solid transparent;
-            padding: 0.375rem 0.75rem;
-            font-size: 1rem;
-            line-height: 1.5;
-            border-radius: 0.25rem;
-            transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, 
-                        border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-        
-        .btn-primary {
-            color: #fff;
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        
-        .btn-primary:hover {
-            background-color: #004494;
-            border-color: #004494;
-        }
-        
-        .btn-success {
-            color: #fff;
-            background-color: var(--success-color);
-            border-color: var(--success-color);
-        }
-        
-        .btn-success:hover {
-            background-color: #218838;
-            border-color: #1e7e34;
-        }
-        
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        
-        .form-label {
-            display: block;
+        h1 {
+            font-size: 1.8rem;
             margin-bottom: 0.5rem;
-            font-weight: 600;
         }
         
-        .form-control {
-            display: block;
-            width: 100%;
-            padding: 0.375rem 0.75rem;
-            font-size: 1rem;
-            line-height: 1.5;
-            color: #495057;
-            background-color: #fff;
-            background-clip: padding-box;
-            border: 1px solid #ced4da;
-            border-radius: 0.25rem;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        h2 {
+            font-size: 1.3rem;
+            margin: 1.5rem 0 1rem 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
         }
         
-        .form-select {
-            display: block;
-            width: 100%;
-            padding: 0.375rem 0.75rem;
-            font-size: 1rem;
-            line-height: 1.5;
-            color: #495057;
-            background-color: #fff;
-            background-clip: padding-box;
-            border: 1px solid #ced4da;
-            border-radius: 0.25rem;
-        }
-        
-        .alert {
-            position: relative;
-            padding: 0.75rem 1.25rem;
-            margin-bottom: 1rem;
-            border: 1px solid transparent;
-            border-radius: 0.25rem;
-        }
-        
-        .alert-danger {
-            color: #721c24;
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-        }
-        
-        .credits {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            background-color: var(--light-color);
-            color: var(--secondary-color);
-            font-size: 0.9em;
-        }
-        
-        .coordinate-examples {
-            background-color: #f8f9fa;
+        .instructions {
+            background-color: #eaf2f8;
             padding: 15px;
             border-radius: 5px;
-            margin: 15px 0;
-            font-family: monospace;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
         }
         
-        .input-group {
-            display: flex;
-            margin-bottom: 10px;
+        .instructions ol {
+            padding-left: 20px;
+            margin-top: 10px;
         }
         
-        .input-group > .form-control {
-            flex: 1 1 auto;
-            width: 1%;
-            margin-right: 5px;
+        .instructions li {
+            margin-bottom: 8px;
         }
         
-        .input-group > .btn {
-            position: relative;
-            z-index: 2;
+        .file-upload {
+            margin: 20px 0;
+            text-align: center;
+            padding: 20px;
+            border: 2px dashed #3498db;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        
+        .file-upload p {
+            margin-bottom: 15px;
+            color: #7f8c8d;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
         }
         
         .legend {
-            position: absolute;
-            bottom: 20px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
             border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+        
+        .legend h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
         }
         
         .legend-item {
             display: flex;
             align-items: center;
-            margin: 5px 0;
+            margin-bottom: 8px;
         }
         
         .legend-color {
             width: 20px;
             height: 20px;
-            margin-right: 5px;
             border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px #ccc;
+        }
+        
+        .data-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+        
+        .data-info h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .info-table th, .info-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        
+        .info-table th {
+            background-color: #f2f2f2;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #2c3e50;
+            color: white;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 40vh;
+            }
         }
     </style>
 </head>
 <body>
+    <header>
+        <h1>Geoportal - Verificación de Puntos CVC</h1>
+        <p>Visualización y verificación de puntos de encuesta</p>
+    </header>
+    
     <div class="container">
-        <header>
-            <h1>Geoportal - Visualización de Coordenadas</h1>
-            <p>Convierte coordenadas DMS a decimales y visualízalas en el mapa</p>
-        </header>
-
-        <div class="tab-container">
-            <div class="tab">
-                <button class="tablinks active" onclick="openTab(event, 'UploadTab')">Cargar Coordenadas</button>
-                <button class="tablinks" onclick="openTab(event, 'MapTab')">Visualizar en Mapa</button>
-                <button class="tablinks" onclick="openTab(event, 'ConvertTab')">Convertir a Planas</button>
+        <div class="sidebar">
+            <div class="instructions">
+                <h2>Instrucciones</h2>
+                <ol>
+                    <li>Cargue el archivo CSV con los datos de la encuesta</li>
+                    <li>Asegúrese que el archivo contenga columnas de latitud y longitud</li>
+                    <li>Los puntos se mostrarán en el mapa con colores diferentes por municipio</li>
+                    <li>Haga clic en cualquier punto para ver sus detalles</li>
+                    <li>Use los controles del mapa para acercar/alejar y navegar</li>
+                </ol>
             </div>
             
-            <div id="UploadTab" class="tabcontent" style="display:block;">
-                <h2>Cargar coordenadas DMS</h2>
-                
-                <div class="config-panel">
-                    <h4>Configuración del archivo</h4>
-                    <div class="form-group">
-                        <label class="form-label">Separador de columnas:</label>
-                        <select id="separator" class="form-select">
-                            <option value=";">Punto y coma (;)</option>
-                            <option value=",">Coma (,)</option>
-                            <option value="tab">Tabulador</option>
-                            <option value="|">Pipe (|)</option>
-                            <option value="auto">Detección automática</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Columnas (empezando desde 1):</label>
-                        <div class="input-group">
-                            <input type="number" id="nameCol" class="form-control" placeholder="Columna nombre" value="1" min="1">
-                            <input type="number" id="latCol" class="form-control" placeholder="Columna latitud" value="2" min="1">
-                            <input type="number" id="lngCol" class="form-control" placeholder="Columna longitud" value="3" min="1">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">
-                            <input type="checkbox" id="hasHeader" checked> El archivo tiene fila de encabezado
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="coordinate-examples">
-                    <p><strong>Ejemplo del formato esperado:</strong></p>
-                    <p>punto 1;5°8'50.4"N;70°57'2.3"W</p>
-                    <p>punto 2;5°8'50.4"N;70°57'2.3"W</p>
-                    <p>punto 3;5°8'50.4"N;70°57'2.3"W</p>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Pegue aquí el contenido del archivo:</label>
-                    <textarea id="batchCoords" class="coords-input" placeholder="Ejemplo:
-punto 1;5°8'50.4&quot;N;70°57'2.3&quot;W
-punto 2;5°8'50.4&quot;N;70°57'2.3&quot;W
-punto 3;5°8'50.4&quot;N;70°57'2.3&quot;W"></textarea>
-                </div>
-                
-                <button class="btn btn-primary" onclick="processBatchCoords()">Procesar Coordenadas</button>
-                
-                <div class="file-upload">
-                    <p>O cargar desde un archivo:</p>
-                    <input type="file" id="csvFile" accept=".csv,.txt">
-                    <button class="btn btn-primary" onclick="processFile()">Procesar Archivo</button>
-                </div>
-                
-                <div class="preview-container">
-                    <h4>Vista previa (primeras 5 líneas):</h4>
-                    <div id="filePreview"></div>
-                </div>
-                
-                <div id="errorPanel" class="error-panel" style="display: none;">
-                    <h4>Errores de procesamiento:</h4>
-                    <div id="errorMessages"></div>
-                </div>
-                
-                <div id="successPanel" class="success-panel" style="display: none;">
-                    <h4>Procesamiento completado con éxito</h4>
-                    <div id="successMessage"></div>
+            <div class="file-upload">
+                <h2>Cargar Datos de Encuesta</h2>
+                <p>Seleccione el archivo CSV con los datos de diagnóstico</p>
+                <input type="file" id="csvFile" accept=".csv">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Procesando archivo...</p>
                 </div>
             </div>
             
-            <div id="MapTab" class="tabcontent">
-                <h2>Visualización en Mapa</h2>
-                <div class="map-container">
-                    <div id="map"></div>
-                    <div class="map-controls">
-                        <button class="btn btn-primary" onclick="centerMap()">Centrar Mapa</button>
-                        <button class="btn btn-primary" onclick="clearMarkers()">Limpiar Marcadores</button>
-                    </div>
-                    <div class="legend">
-                        <h4>Leyenda</h4>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: #3388ff;"></div>
-                            <span>Coordenadas convertidas</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="controls">
-                    <label for="siteName">Nombre del Sitio:</label>
-                    <input type="text" id="siteName" class="form-control" placeholder="Ej: Mi casa, Parque principal">
-                    <p>Haga clic en el mapa para capturar coordenadas.</p>
-                    <p>Coordenadas Capturadas: <span id="capturedCoords">N/A</span></p>
+            <div class="legend">
+                <h3>Leyenda</h3>
+                <div id="legend-content">
+                    <p>Los puntos se colorearán automáticamente según el municipio</p>
                 </div>
             </div>
             
-            <div id="ConvertTab" class="tabcontent">
-                <h2>Convertir coordenadas a planas</h2>
-                
-                <div class="form-group">
-                    <label class="form-label">Sistema de coordenadas:</label>
-                    <select id="projectionSelect" class="form-select">
-                        <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
-                        <option value="EPSG:21897">Colombia Bogotá Zone (EPSG:21897)</option>
-                        <option value="EPSG:3116">Colombia MAGNA (EPSG:3116)</option>
-                        <option value="EPSG:32618">WGS 84 / UTM zone 18N (EPSG:32618)</option>
-                    </select>
-                </div>
-                
-                <button class="btn btn-success" onclick="convertToPlanas()">Convertir a Coordenadas Planas</button>
-                <button class="btn btn-primary" onclick="exportToCSV()">Exportar a CSV</button>
-                
-                <h3>Coordenadas procesadas</h3>
-                <div style="overflow-x: auto;">
-                    <table id="locationsTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Latitud (DMS)</th>
-                                <th>Longitud (DMS)</th>
-                                <th>Latitud (Decimal)</th>
-                                <th>Longitud (Decimal)</th>
-                                <th>Coordenada X (Plana)</th>
-                                <th>Coordenada Y (Plana)</th>
-                                <th>Sistema</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="data-info">
+                <h3>Información de Puntos Cargados</h3>
+                <p id="point-count">0 puntos cargados</p>
+                <div id="municipio-count"></div>
             </div>
         </div>
-
-        <div class="credits">
-            Elaborado por Diego Castaño, Esp SIG, 2025.
+        
+        <div class="map-container">
+            <div id="map"></div>
         </div>
     </div>
+    
+    <footer>
+        <p>Geoportal CVC 2025 - Verificación de puntos de encuesta</p>
+    </footer>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
-
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script>
-        // Definir sistemas de coordenadas para proj4
-        proj4.defs("EPSG:21897", "+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
-        proj4.defs("EPSG:3116", "+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
-        proj4.defs("EPSG:32618", "+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs");
-        proj4.defs("EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs");
-
-        let map;
-        let temporaryMarker;
-        let permanentMarkers = L.layerGroup();
-        let locations = [];
-        let fileContent = "";
-
-        // Coordenadas iniciales (Colombia)
-        const initialLat = 4.6;
-        const initialLng = -74.1;
-        const initialZoom = 6;
-
-        // Inicializar el mapa de Leaflet
-        function initMap() {
-            if (map) {
-                map.remove();
-            }
-            
-            map = L.map('map').setView([initialLat, initialLng], initialZoom);
-
-            // Definir las capas base
-            const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
-            });
-
-            const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-                maxZoom: 19
-            });
-
-            // Añadir la capa OpenStreetMap por defecto
-            osmLayer.addTo(map);
-
-            // Añadir los marcadores permanentes al mapa como una capa de grupo
-            permanentMarkers.addTo(map);
-
-            // Añadir el control de capas al mapa
-            L.control.layers({
-                "OpenStreetMap": osmLayer,
-                "Imagen Satelital": esriSatelliteLayer
-            }, {
-                "Marcadores": permanentMarkers
-            }).addTo(map);
-
-            // Evento para capturar coordenadas al hacer clic en el mapa
-            map.on('click', (e) => {
-                const lat = e.latlng.lat;
-                const lng = e.latlng.lng;
-
-                document.getElementById('capturedCoords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-                if (temporaryMarker) {
-                    map.removeLayer(temporaryMarker);
-                }
-
-                temporaryMarker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup(`
-                        <div>
-                            <h3>Asignar Nombre al Sitio</h3>
-                            <p>Lat: ${lat.toFixed(6)}</p>
-                            <p>Lng: ${lng.toFixed(6)}</p>
-                            <label for="infoWindowSiteName">Nombre:</label>
-                            <input type="text" id="infoWindowSiteName" placeholder="Nombre del sitio">
-                            <button onclick="addLocation('${lat}', '${lng}')">Agregar Sitio</button>
-                        </div>
-                    `).openPopup();
-            });
-            
-            // Añadir escala
-            L.control.scale({metric: true, imperial: false}).addTo(map);
-        }
-
-        // Centrar el mapa en las coordenadas actuales
-        function centerMap() {
-            if (locations.length > 0) {
-                const latlngs = locations.map(loc => [loc.lat, loc.lng]);
-                const bounds = L.latLngBounds(latlngs);
-                map.fitBounds(bounds, { padding: [50, 50] });
-            } else {
-                map.setView([initialLat, initialLng], initialZoom);
-            }
-        }
-
-        // Limpiar todos los marcadores
-        function clearMarkers() {
-            permanentMarkers.clearLayers();
-        }
-
-        // Función para convertir coordenadas DMS a decimal
-        function parseDMSString(dmsString) {
-            if (typeof dmsString !== 'string') {
-                return parseFloat(dmsString);
-            }
-            
-            // Verificar si ya es un número decimal
-            if (!isNaN(dmsString) && dmsString !== '') {
-                return parseFloat(dmsString);
-            }
-            
-            // Limpiar la cadena
-            const cleanString = dmsString.trim()
-                .replace(/�/g, '°')  // Carácter de grado corrupto
-                .replace(/\?/g, '°')  // Algunas veces se muestra como ?
-                .replace(/""/g, '"')  // Comillas dobles
-                .replace(/\s+/g, ' ') // Múltiples espacios por uno solo
-                .replace(/' '/g, "'") // Espacios en las comillas
-                .replace(/″/g, '"')   // Diferente tipo de comillas
-                .replace(/“/g, '"').replace(/”/g, '"') // Comillas curvas
-                .replace(/´/g, "'");  // Apostrophe diferente
-            
-            // Expresión regular para analizar formato DMS (ej: 5°8'50.4"N)
-            const regex = /([0-9]{1,3})[°\s]+\s*([0-9]{1,2})['\s]+\s*([0-9]{1,2}(?:\.[0-9]+)?)[\"\s]+\s*([NSEWO])?/i;
-            const match = cleanString.match(regex);
-            
-            if (!match) {
-                // Intentar con formato más simple sin dirección
-                const simpleRegex = /([0-9]{1,3})[°\s]+\s*([0-9]{1,2})['\s]+\s*([0-9]{1,2}(?:\.[0-9]+)?)/i;
-                const simpleMatch = cleanString.match(simpleRegex);
-                
-                if (!simpleMatch) {
-                    throw new Error(`Formato DMS no reconocido: ${cleanString}`);
-                }
-                
-                const degrees = parseFloat(simpleMatch[1]);
-                const minutes = parseFloat(simpleMatch[2]);
-                const seconds = parseFloat(simpleMatch[3]);
-                
-                return degrees + (minutes / 60) + (seconds / 3600);
-            }
-            
-            const degrees = parseFloat(match[1]);
-            const minutes = parseFloat(match[2]);
-            const seconds = parseFloat(match[3]);
-            const direction = match[4] ? match[4].toUpperCase() : '';
-            
-            let decimal = degrees + (minutes / 60) + (seconds / 3600);
-            
-            // Ajustar según la dirección (N/S/E/O)
-            if (direction === 'S' || direction === 'W' || direction === 'O') {
-                decimal = -decimal;
-            }
-            
-            return decimal;
-        }
-
-        // Función para formatear DMS a string legible
-        function formatDMS(decimal, isLatitude) {
-            const direction = isLatitude ? 
-                (decimal >= 0 ? 'N' : 'S') : 
-                (decimal >= 0 ? 'E' : 'W');
-            
-            const absDecimal = Math.abs(decimal);
-            const degrees = Math.floor(absDecimal);
-            const minutes = Math.floor((absDecimal - degrees) * 60);
-            const seconds = ((absDecimal - degrees - minutes/60) * 3600).toFixed(1);
-            
-            return `${degrees}°${minutes}'${seconds}"${direction}`;
-        }
-
-        // Función para detectar el separador automáticamente
-        function detectSeparator(text) {
-            const lines = text.split('\n').filter(line => line.trim().length > 0);
-            if (lines.length < 2) return ";";
-            
-            // Probar con las primeras 5 líneas
-            const sampleLines = lines.slice(0, Math.min(5, lines.length));
-            
-            const commaCounts = sampleLines.map(line => (line.match(/,/g) || []).length);
-            const semicolonCounts = sampleLines.map(line => (line.match(/;/g) || []).length);
-            const tabCounts = sampleLines.map(line => (line.match(/\t/g) || []).length);
-            const pipeCounts = sampleLines.map(line => (line.match(/\|/g) || []).length);
-            
-            const avgCommas = commaCounts.reduce((a, b) => a + b, 0) / commaCounts.length;
-            const avgSemicolons = semicolonCounts.reduce((a, b) => a + b, 0) / semicolonCounts.length;
-            const avgTabs = tabCounts.reduce((a, b) => a + b, 0) / tabCounts.length;
-            const avgPipes = pipeCounts.reduce((a, b) => a + b, 0) / pipeCounts.length;
-            
-            if (avgTabs > avgCommas && avgTabs > avgSemicolons && avgTabs > avgPipes) return "tab";
-            if (avgSemicolons > avgCommas && avgSemicolons > avgPipes) return ";";
-            if (avgPipes > avgCommas) return "|";
-            return ",";
-        }
-
-        // Función para procesar el contenido del archivo
-        function processFileContent(content) {
-            const hasHeader = document.getElementById('hasHeader').checked;
-            let separator = document.getElementById('separator').value;
-            const nameCol = parseInt(document.getElementById('nameCol').value) - 1;
-            const latCol = parseInt(document.getElementById('latCol').value) - 1;
-            const lngCol = parseInt(document.getElementById('lngCol').value) - 1;
-            
-            if (separator === 'auto') {
-                separator = detectSeparator(content);
-            }
-            
-            const actualSeparator = separator === 'tab' ? '\t' : separator;
-            const lines = content.split('\n').filter(line => line.trim().length > 0);
-            
-            let startLine = hasHeader ? 1 : 0;
-            let processed = 0;
-            let errors = 0;
-            let errorMessages = [];
-            
-            for (let i = startLine; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
-                
-                let parts;
-                if (actualSeparator === ',') {
-                    // Manejar CSV con comas dentro de comillas
-                    parts = line.split(',').map(part => part.replace(/^"|"$/g, '').trim());
-                } else {
-                    parts = line.split(actualSeparator).map(part => part.replace(/^"|"$/g, '').trim());
-                }
-                
-                if (Math.max(nameCol, latCol, lngCol) >= parts.length) {
-                    errors++;
-                    errorMessages.push(`Línea ${i + 1}: No hay suficientes columnas`);
-                    continue;
-                }
-                
-                const name = parts[nameCol] || `Punto ${i + 1 - startLine}`;
-                const latStr = parts[latCol];
-                const lngStr = parts[lngCol];
-                const originalLatStr = latStr;
-                const originalLngStr = lngStr;
-                
-                try {
-                    let lat, lng;
-                    
-                    try {
-                        lat = parseDMSString(latStr);
-                    } catch (e) {
-                        lat = parseFloat(latStr);
-                        if (isNaN(lat)) {
-                            throw new Error(`Latitud no válida: ${latStr}`);
-                        }
-                    }
-                    
-                    try {
-                        lng = parseDMSString(lngStr);
-                    } catch (e) {
-                        lng = parseFloat(lngStr);
-                        if (isNaN(lng)) {
-                            throw new Error(`Longitud no válida: ${lngStr}`);
-                        }
-                    }
-                    
-                    if (isNaN(lat) || isNaN(lng)) {
-                        throw new Error(`Coordenadas no válidas: ${latStr}, ${lngStr}`);
-                    }
-                    
-                    // Validar rangos de coordenadas
-                    if (lat < -90 || lat > 90) {
-                        throw new Error(`Latitud fuera de rango (-90 a 90): ${lat}`);
-                    }
-                    
-                    if (lng < -180 || lng > 180) {
-                        throw new Error(`Longitud fuera de rango (-180 a 180): ${lng}`);
-                    }
-                    
-                    addLocation(lat, lng, name, originalLatStr, originalLngStr);
-                    processed++;
-                } catch (error) {
-                    errors++;
-                    errorMessages.push(`Línea ${i + 1}: ${error.message}`);
-                }
-            }
-            
-            return { processed, errors, errorMessages };
-        }
-
-        // Función para mostrar vista previa del archivo
-        function updateFilePreview(content) {
-            const preview = document.getElementById('filePreview');
-            const lines = content.split('\n').filter(line => line.trim().length > 0);
-            const previewLines = lines.slice(0, 5);
-            
-            preview.innerHTML = previewLines.map((line, index) => 
-                `<div>${index + 1}: ${line}</div>`
-            ).join('');
-            
-            if (lines.length > 5) {
-                preview.innerHTML += `<div>... (${lines.length - 5} líneas más)</div>`;
-            }
-        }
-
-        // Función para mostrar errores
-        function showErrors(errorMessages) {
-            const errorPanel = document.getElementById('errorPanel');
-            const errorMessagesDiv = document.getElementById('errorMessages');
-            
-            if (errorMessages.length > 0) {
-                errorMessagesDiv.innerHTML = errorMessages.slice(0, 20).map(msg => 
-                    `<div>${msg}</div>`
-                ).join('');
-                
-                if (errorMessages.length > 20) {
-                    errorMessagesDiv.innerHTML += `<div>... (${errorMessages.length - 20} errores más)</div>`;
-                }
-                
-                errorPanel.style.display = 'block';
-            } else {
-                errorPanel.style.display = 'none';
-            }
-        }
-
-        // Función para mostrar éxito
-        function showSuccess(message) {
-            const successPanel = document.getElementById('successPanel');
-            const successMessageDiv = document.getElementById('successMessage');
-            
-            successMessageDiv.innerHTML = message;
-            successPanel.style.display = 'block';
-            
-            // Ocultar después de 5 segundos
-            setTimeout(() => {
-                successPanel.style.display = 'none';
-            }, 5000);
-        }
-
-        function addLocation(lat, lng, name = null, originalLat = null, originalLng = null) {
-            const siteName = name || (document.getElementById('infoWindowSiteName') ? 
-                                    document.getElementById('infoWindowSiteName').value.trim() : 
-                                    document.getElementById('siteName').value.trim());
-            
-            if (!siteName) {
-                alert('Por favor, ingrese un nombre para el sitio.');
-                return;
-            }
-
-            const location = {
-                name: siteName,
-                lat: parseFloat(lat),
-                lng: parseFloat(lng),
-                originalLat: originalLat || formatDMS(lat, true),
-                originalLng: originalLng || formatDMS(lng, false),
-                x: null,
-                y: null,
-                projection: null
-            };
-            
-            locations.push(location);
-            updateTable();
-            
-            // Crear marcador con popup
-            const newPermanentMarker = L.marker([location.lat, location.lng], {
-                title: siteName
-            }).bindPopup(`
-                <b>${siteName}</b><br>
-                Lat: ${location.lat.toFixed(6)}<br>
-                Lng: ${location.lng.toFixed(6)}<br>
-                ${location.originalLat}, ${location.originalLng}
-            `);
-            
-            // Añadir marcador al grupo
-            permanentMarkers.addLayer(newPermanentMarker);
-
-            document.getElementById('siteName').value = '';
-            document.getElementById('capturedCoords').textContent = 'N/A';
-
-            if (temporaryMarker) {
-                map.removeLayer(temporaryMarker);
-                temporaryMarker = null;
-            }
-
-            map.closePopup();
-            
-            return location;
-        }
-
-        function updateTable() {
-            const tableBody = document.getElementById('locationsTable').getElementsByTagName('tbody')[0];
-            tableBody.innerHTML = '';
-            
-            locations.forEach((location, index) => {
-                const newRow = tableBody.insertRow();
-                
-                const idCell = newRow.insertCell(0);
-                const origLatCell = newRow.insertCell(1);
-                const origLngCell = newRow.insertCell(2);
-                const latCell = newRow.insertCell(3);
-                const lngCell = newRow.insertCell(4);
-                const xCell = newRow.insertCell(5);
-                const yCell = newRow.insertCell(6);
-                const projCell = newRow.insertCell(7);
-                
-                idCell.textContent = location.name;
-                origLatCell.textContent = location.originalLat;
-                origLngCell.textContent = location.originalLng;
-                latCell.textContent = location.lat.toFixed(6);
-                lngCell.textContent = location.lng.toFixed(6);
-                xCell.textContent = location.x ? location.x.toFixed(2) : 'No convertido';
-                yCell.textContent = location.y ? location.y.toFixed(2) : 'No convertido';
-                projCell.textContent = location.projection || 'N/A';
-            });
-        }
-
-        function processBatchCoords() {
-            const coordsText = document.getElementById('batchCoords').value;
-            if (!coordsText.trim()) {
-                alert('Por favor, ingrese coordenadas en el formato especificado.');
-                return;
-            }
-            
-            // Limpiar marcadores anteriores
-            permanentMarkers.clearLayers();
-            locations = [];
-            
-            const result = processFileContent(coordsText);
-            showErrors(result.errorMessages);
-            
-            if (result.processed > 0) {
-                showSuccess(`Se procesaron ${result.processed} coordenadas correctamente.`);
-                
-                // Centrar el mapa en las coordenadas procesadas
-                if (locations.length > 0) {
-                    const latlngs = locations.map(loc => [loc.lat, loc.lng]);
-                    const bounds = L.latLngBounds(latlngs);
-                    map.fitBounds(bounds, { padding: [50, 50] });
-                }
-            }
-            
-            let message = `Procesamiento completado: ${result.processed} coordenadas añadidas, ${result.errors} errores.`;
-            alert(message);
-        }
-
-        function processFile() {
-            const fileInput = document.getElementById('csvFile');
-            if (!fileInput.files.length) {
-                alert('Por favor, seleccione un archivo.');
-                return;
-            }
-            
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                fileContent = e.target.result;
-                document.getElementById('batchCoords').value = fileContent;
-                updateFilePreview(fileContent);
-                processBatchCoords();
-            };
-            
-            reader.readAsText(file);
-        }
-
-        function convertToPlanas() {
-            if (locations.length === 0) {
-                alert('No hay coordenadas para convertir. Por favor, cargue algunas coordenadas primero.');
-                return;
-            }
-            
-            const projectionCode = document.getElementById('projectionSelect').value;
-            
-            locations.forEach(location => {
-                try {
-                    const result = proj4('EPSG:4326', projectionCode, [location.lng, location.lat]);
-                    location.x = result[0];
-                    location.y = result[1];
-                    location.projection = projectionCode;
-                } catch (error) {
-                    console.error('Error en conversión:', error);
-                }
-            });
-            
-            updateTable();
-            alert('Conversión completada.');
-        }
-
-        function exportToCSV() {
-            const hasConverted = locations.some(loc => loc.x !== null && loc.y !== null);
-            if (!hasConverted) {
-                alert('Primero debe convertir las coordenadas a planas antes de exportar.');
-                return;
-            }
-            
-            let csvContent = "ID,Latitud DMS,Longitud DMS,Latitud Decimal,Longitud Decimal,X,Y,Sistema\n";
-            
-            locations.forEach(location => {
-                csvContent += `"${location.name}","${location.originalLat}","${location.originalLng}",${location.lat},${location.lng},${location.x},${location.y},${location.projection}\n`;
-            });
-            
-            const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "coordenadas_convertidas.csv");
-            document.body.appendChild(link);
-            
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function openTab(evt, tabName) {
-            var i, tabcontent, tablinks;
-            tabcontent = document.getElementsByClassName('tabcontent');
-            for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
-            }
-            tablinks = document.getElementsByClassName('tablinks');
-            for (i = 0; i < tablinks.length; i++) {
-                tablinks[i].className = tablinks[i].className.replace(" active", "");
-            }
-            document.getElementById(tabName).style.display = "block";
-            evt.currentTarget.className += " active";
-            
-            // Inicializar el mapa si se abre la pestaña de mapa
-            if (tabName === 'MapTab') {
-                // Pequeño retraso para asegurar que el contenedor del mapa esté visible
-                setTimeout(() => {
-                    if (!map) {
-                        initMap();
-                    } else {
-                        // Forzar actualización del mapa
-                        map.invalidateSize();
-                        centerMap();
-                    }
-                }, 100);
-            }
-        }
+        // Inicializar el mapa
+        const map = L.map('map').setView([3.4372, -76.5225], 10); // Centro inicial en Cali, Colombia
         
-        // Inicializar con el formato de tu archivo
-        document.getElementById('batchCoords').value = `punto;Latitud;Longitud
-punto 1;5°8'50.4"N;70°57'2.3"W
-punto 2;5°8'50.4"N;70°57'2.3"W
-punto 3;5°8'50.4"N;70°57'2.3"W
-punto 4;5°8'50.4"N;70°57'2.3"W
-punto 5;5°8'50.4"N;70°57'2.3"W
-punto 6;5°8'50.4"N;70°57'2.3"W
-punto 7;5°8'5.6"N;70°56'28.6"W
-punto 8;5°8'50.4"N;70°57'2.3"W`;
-        updateFilePreview(document.getElementById('batchCoords').value);
+        // Capas base
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
         
-        // Inicializar el mapa al cargar la página
-        window.onload = function() {
-            initMap();
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+        
+        // Capa de límites municipales (ejemplo - en producción se debería usar datos reales)
+        const municipalBoundaries = L.geoJSON(null, {
+            style: {
+                color: '#ff7800',
+                weight: 2,
+                opacity: 0.8,
+                fillOpacity: 0.1
+            }
+        });
+        
+        // Añadir capa base por defecto
+        osmLayer.addTo(map);
+        
+        // Añadir control de capas
+        const baseMaps = {
+            "OpenStreetMap": osmLayer,
+            "Satélite": satelliteLayer
         };
+        
+        const overlayMaps = {
+            "Límites Municipales": municipalBoundaries
+        };
+        
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+        
+        // Grupo para los marcadores
+        const markersLayer = L.layerGroup().addTo(map);
+        
+        // Colores predefinidos para municipios
+        const municipioColors = [
+            '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', 
+            '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', 
+            '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', 
+            '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
+        ];
+        
+        // Variable para almacenar datos CSV
+        let csvData = [];
+        
+        // Función para procesar el archivo CSV
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                complete: function(results) {
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    if (results.errors.length > 0) {
+                        alert('Error al procesar el archivo: ' + results.errors[0].message);
+                        return;
+                    }
+                    
+                    csvData = results.data.filter(row => row.latitud && row.longitud);
+                    processCSVData(csvData);
+                },
+                error: function(error) {
+                    document.getElementById('loading').style.display = 'none';
+                    alert('Error al leer el archivo: ' + error.message);
+                }
+            });
+        });
+        
+        // Función para procesar los datos CSV y mostrar en el mapa
+        function processCSVData(data) {
+            // Limpiar marcadores anteriores
+            markersLayer.clearLayers();
+            
+            if (data.length === 0) {
+                alert('El archivo CSV no contiene datos válidos con coordenadas.');
+                return;
+            }
+            
+            // Actualizar contador de puntos
+            document.getElementById('point-count').textContent = `${data.length} puntos cargados`;
+            
+            // Agrupar por municipio para la leyenda
+            const municipios = {};
+            data.forEach(row => {
+                if (row.municipio) {
+                    municipios[row.municipio] = (municipios[row.municipio] || 0) + 1;
+                }
+            });
+            
+            // Actualizar información de municipios
+            let municipioHTML = '<table class="info-table"><tr><th>Municipio</th><th>Puntos</th></tr>';
+            for (const [municipio, count] of Object.entries(municipios)) {
+                municipioHTML += `<tr><td>${municipio}</td><td>${count}</td></tr>`;
+            }
+            municipioHTML += '</table>';
+            document.getElementById('municipio-count').innerHTML = municipioHTML;
+            
+            // Crear leyenda
+            let legendHTML = '';
+            let colorIndex = 0;
+            
+            for (const municipio of Object.keys(municipios)) {
+                const color = municipioColors[colorIndex % municipioColors.length];
+                legendHTML += `<div class="legend-item">
+                    <div class="legend-color" style="background-color: ${color};"></div>
+                    <span>${municipio}</span>
+                </div>`;
+                colorIndex++;
+            }
+            
+            document.getElementById('legend-content').innerHTML = legendHTML;
+            
+            // Añadir marcadores al mapa
+            data.forEach(row => {
+                const lat = parseFloat(row.latitud);
+                const lng = parseFloat(row.longitud);
+                
+                if (isNaN(lat) || isNaN(lng)) {
+                    console.warn('Coordenadas inválidas para fila:', row);
+                    return;
+                }
+                
+                // Determinar color según municipio
+                const municipio = row.municipio || 'Desconocido';
+                const colorIndex = Object.keys(municipios).indexOf(municipio) % municipioColors.length;
+                const color = municipioColors[colorIndex];
+                
+                // Crear marcador
+                const marker = L.circleMarker([lat, lng], {
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.7,
+                    radius: 8,
+                    weight: 2
+                });
+                
+                // Crear contenido para popup
+                let popupContent = `<div style="max-width: 300px;"><b>${municipio}</b><br>`;
+                
+                // Añadir todos los campos al popup
+                for (const [key, value] of Object.entries(row)) {
+                    if (value && key !== 'latitud' && key !== 'longitud') {
+                        popupContent += `<b>${key}:</b> ${value}<br>`;
+                    }
+                }
+                
+                popupContent += '</div>';
+                
+                // Asignar popup al marcador
+                marker.bindPopup(popupContent);
+                
+                // Añadir marcador al grupo
+                markersLayer.addLayer(marker);
+            });
+            
+            // Ajustar vista del mapa para mostrar todos los marcadores
+            if (data.length > 0) {
+                const group = new L.featureGroup(markersLayer.getLayers());
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+        
+        // Simular datos de límites municipales (en un caso real, se cargarían desde un servicio WMS o GeoJSON)
+        function addMockMunicipalBoundaries() {
+            // Esto es un ejemplo. En producción, se cargarían datos reales de límites municipales
+            const mockBoundaries = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Cali"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-76.55, 3.42], [-76.50, 3.42], [-76.50, 3.46], 
+                                [-76.55, 3.46], [-76.55, 3.42]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Palmira"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-76.25, 3.52], [-76.20, 3.52], [-76.20, 3.56], 
+                                [-76.25, 3.56], [-76.25, 3.52]
+                            ]]
+                        }
+                    }
+                ]
+            };
+            
+            municipalBoundaries.addData(mockBoundaries);
+        }
+        
+        // Llamar a la función para añadir límites municipales de ejemplo
+        addMockMunicipalBoundaries();
     </script>
 </body>
 </html>
